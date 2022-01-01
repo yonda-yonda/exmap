@@ -1,6 +1,8 @@
 import * as React from "react";
 import styled from "styled-components";
 import logo from "./logo.svg";
+
+import { useOl } from "~/hooks/useOl";
 import "./App.css";
 
 const ColoredLink = styled.a`
@@ -9,6 +11,7 @@ const ColoredLink = styled.a`
 `;
 
 function App() {
+  const ol = useOl();
   const [count, setCount] = React.useState<number>(0);
   return (
     <div className="App">
@@ -31,6 +34,14 @@ function App() {
           Learn React {count}
         </ColoredLink>
       </header>
+      <div
+        ref={ol.ref}
+        style={{
+          width: "100%",
+          height: "480px",
+        }}
+      />
+      .....
     </div>
   );
 }
