@@ -1,5 +1,8 @@
 import * as React from "react";
 import { BrowserRouter, Link, Routes, Route } from "react-router-dom";
+
+import CssBaseline from "@mui/material/CssBaseline";
+
 import styled from "styled-components";
 import logo from "./logo.svg";
 
@@ -16,6 +19,7 @@ function App() {
   const [count, setCount] = React.useState<number>(0);
   return (
     <React.StrictMode>
+      <CssBaseline />
       <BrowserRouter>
         <nav
           style={{
