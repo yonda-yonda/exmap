@@ -3,16 +3,9 @@ import { BrowserRouter, Link, Routes, Route } from "react-router-dom";
 import styled from "styled-components";
 import logo from "./logo.svg";
 
-import { useOl } from "~/hooks/useOl";
+import { Contact } from "~/pages/contact/";
+import { About } from "~/pages/about/";
 import "./App.css";
-
-function About() {
-  return <h1>About</h1>;
-}
-
-function Contact() {
-  return <h1>Contact</h1>;
-}
 
 const ColoredLink = styled.a`
   color: red;
@@ -20,7 +13,6 @@ const ColoredLink = styled.a`
 `;
 
 function App() {
-  const ol = useOl();
   const [count, setCount] = React.useState<number>(0);
   return (
     <React.StrictMode>
@@ -58,13 +50,6 @@ function App() {
                     Learn React {count}
                   </ColoredLink>
                 </header>
-                <div
-                  ref={ol.ref}
-                  style={{
-                    width: "100%",
-                    height: "480px",
-                  }}
-                />
               </div>
             }
           />
