@@ -14,11 +14,11 @@ export interface UseOlValues {
 
 export function useOl(): UseOlValues {
   const ref = React.useRef<HTMLDivElement>(null);
-  const inited = React.useRef(false);
+  const initialized = React.useRef(false);
   const [map, setMap] = React.useState<Map>();
 
   React.useEffect(() => {
-    if (inited.current) return;
+    if (initialized.current) return;
     const attribution = new Attribution({
       collapsible: false,
     });
@@ -46,7 +46,7 @@ export function useOl(): UseOlValues {
       }).extend(controls),
     });
     setMap(map);
-    inited.current = true;
+    initialized.current = true;
   }, []);
 
   return {
