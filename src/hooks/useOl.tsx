@@ -7,33 +7,40 @@ import OSM from "ol/source/OSM";
 import { fromLonLat } from "ol/proj";
 import * as React from "react";
 
+export interface UseOlProps {
+  center?: [number, number];
+  zoom?: number;
+}
+
 export interface UseOlValues {
   ref: React.RefObject<HTMLDivElement>;
   map: Map | undefined;
 }
 
-export function useOl(): UseOlValues {
-  const ref = React.useRef<HTMLDivElement>(null);
+export function useOl(props?: UseOlProps): UseOlValues {
+  const { center = fromLonLat([37.41, 8.82]), zoom = 4 } = { ...props };
+
   const initialized = React.useRef(false);
+  const ref = React.useRef<HTMLDivElement>(null);
   const [map, setMap] = React.useState<Map>();
 
   React.useEffect(() => {
-    if (initialized.current) return;
+    if (initialized.current || !ref.current) return;
     const attribution = new Attribution({
       collapsible: false,
     });
     const controls: Control[] = [attribution];
 
     const map = new Map({
-      target: ref.current || undefined,
+      target: ref.current,
       layers: [
         new TileLayer({
           source: new OSM(),
         }),
       ],
       view: new View({
-        center: fromLonLat([37.41, 8.82]),
-        zoom: 4,
+        center,
+        zoom,
       }),
       interactions: defaultInteraction({
         altShiftDragRotate: false,
@@ -47,7 +54,7 @@ export function useOl(): UseOlValues {
     });
     setMap(map);
     initialized.current = true;
-  }, []);
+  }, [center, zoom]);
 
   return {
     ref,
