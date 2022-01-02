@@ -18,7 +18,7 @@ export interface UseOlValues {
 }
 
 export function useOl(props?: UseOlProps): UseOlValues {
-  const { center = fromLonLat([37.41, 8.82]), zoom = 4 } = { ...props };
+  const { center = fromLonLat([0, 0]), zoom = 1 } = { ...props };
 
   const initialized = React.useRef(false);
   const ref = React.useRef<HTMLDivElement>(null);
