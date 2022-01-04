@@ -1,4 +1,5 @@
 import * as React from "react";
+import { Helmet } from "react-helmet-async";
 import {
   Container,
   Typography,
@@ -6,155 +7,553 @@ import {
   Grid,
   TextField,
   Button,
+  Switch,
+  Tooltip,
+  FormControl,
+  FormControlLabel,
+  FormHelperText,
+  InputAdornment,
 } from "@mui/material";
-import FormControl from "@mui/material/FormControl";
-import FormHelperText from "@mui/material/FormHelperText";
-import InputAdornment from "@mui/material/InputAdornment";
+import { useTheme } from "@mui/material/styles";
+import useMediaQuery from "@mui/material/useMediaQuery";
+import FileDownloadIcon from "@mui/icons-material/FileDownload";
 import { useForm, SubmitHandler, Controller } from "react-hook-form";
-import { utils } from "geo4326";
+import { scroller } from "react-scroll";
+import { View } from "ol";
+import GeoJSON from "ol/format/GeoJSON";
+import VectorLayer from "ol/layer/Vector";
+import VectorSource from "ol/source/Vector";
+import { get as getProjection } from "ol/proj";
+import { register } from "ol/proj/proj4";
+import proj4 from "proj4";
+import type { Feature } from "geojson";
+import { utils, transform } from "geo4326";
+
 import { useOl } from "~/hooks/useOl";
+import { parsedLinearRing, getPolygon } from "~/scripts/geojson";
+import { download } from "~/scripts/file";
 
 type Input = {
   code: string;
   coordinates: string;
+  partition: string;
+  split: boolean;
 };
 
-const parsedLinearRing = (data: string): number[][] | undefined => {
-  try {
-    const json = JSON.parse(data);
-    if (Array.isArray(json)) {
-      json.forEach((p) => {
-        if (!Array.isArray(p)) throw new Error();
-        p.forEach((v) => {
-          if (typeof v !== "number") throw new Error();
-        });
-      });
-
-      if (
-        json[0][0] !== json[json.length - 1][0] ||
-        json[0][1] !== json[json.length - 1][1]
-      ) {
-        json.push(json[0]);
-      }
-      if (json.length < 4) throw new Error();
-
-      if (!utils.isCcw(json)) {
-        json.reverse();
-      }
-
-      return json;
-    }
-    return;
-  } catch {
-    return;
-  }
+type TransformError = {
+  type: "code" | "coordinates" | "transform" | "display";
 };
 
 export const Transform = (): React.ReactElement => {
-  const { control, handleSubmit } = useForm<Input>({
+  const theme = useTheme();
+  const middle = useMediaQuery(theme.breakpoints.up("md"));
+
+  const preview = useOl();
+  const result = useOl();
+  const inputLayer = React.useRef<VectorLayer<any>>();
+  const distLayer = React.useRef<VectorLayer<any>>();
+  // https://github.com/openlayers/openlayers/issues/12497
+
+  const { control, watch, handleSubmit, setValue } = useForm<Input>({
     mode: "onSubmit",
+    criteriaMode: "all",
     defaultValues: {
       code: "",
       coordinates: "",
+      partition: "0",
+      split: false,
     },
   });
 
-  const onSubmit: SubmitHandler<Input> = (data) => console.log(data);
+  const rawInput = watch();
+  const prevInput = React.useRef<string>();
+  const [transformError, setTransformError] =
+    React.useState<TransformError | null>(null);
+  const [transformed, setTransformed] = React.useState<Feature | null>();
 
-  const ol = useOl();
+  React.useEffect(() => {
+    if (preview.map) {
+      if (!inputLayer.current) {
+        inputLayer.current = new VectorLayer({
+          source: new VectorSource({}),
+        });
+
+        preview.map.addLayer(inputLayer.current);
+      }
+    }
+  }, [preview.map]);
+
+  React.useEffect(() => {
+    if (result.map) {
+      if (!distLayer.current) {
+        distLayer.current = new VectorLayer({
+          source: new VectorSource({}),
+        });
+
+        result.map.addLayer(distLayer.current);
+        result.map.setView(
+          new View({
+            projection: getProjection("EPSG:4326"),
+            center: [0, 0],
+            zoom: 1,
+          })
+        );
+      }
+    }
+  }, [result.map]);
+
+  React.useEffect(() => {
+    if (
+      preview.map &&
+      inputLayer.current &&
+      prevInput.current !== JSON.stringify(rawInput)
+    ) {
+      if (rawInput.code.length === 0 || rawInput.coordinates.length === 0)
+        return;
+
+      const coordinates = parsedLinearRing(rawInput.coordinates);
+      if (!rawInput.code.match(/^[0-9]{1,}$/) || !coordinates) return;
+      prevInput.current = JSON.stringify(rawInput);
+      const code = "EPSG:" + rawInput.code;
+      const currentCode = preview.map.getView().getProjection().getCode();
+
+      try {
+        if (code !== currentCode) {
+          if (!getProjection(code)) {
+            const crs = utils.getCrs(code);
+
+            proj4.defs(code, crs);
+            register(proj4);
+          }
+
+          const projection = getProjection(code);
+          preview.map.setView(
+            new View({
+              projection,
+              center: [0, 0],
+              zoom: 1,
+            })
+          );
+        }
+      } catch {
+        return;
+      }
+
+      try {
+        const source = inputLayer.current.getSource();
+        source.clear();
+
+        const feature = new GeoJSON({
+          dataProjection: code,
+          featureProjection: code,
+        }).readFeature({
+          type: "Polygon",
+          coordinates: [coordinates],
+        });
+        source.addFeature(feature);
+        const polygon = feature.getGeometry();
+        polygon &&
+          preview.map.getView().fit(polygon, {
+            padding: [40, 20, 40, 20],
+            maxZoom: 20,
+          });
+      } catch {
+        return;
+      }
+    }
+  }, [rawInput, preview.map]);
+
+  const onSubmit: SubmitHandler<Input> = React.useCallback(
+    (data) => {
+      if (distLayer.current) {
+        const source = distLayer.current.getSource();
+        source.clear();
+      }
+
+      const code = "EPSG:" + data.code;
+
+      let crs: string;
+      try {
+        crs = utils.getCrs(code);
+      } catch {
+        setTransformError({ type: "code" });
+        return;
+      }
+
+      const coordinates = parsedLinearRing(data.coordinates);
+      if (!coordinates) {
+        setTransformError({ type: "coordinates" });
+        return;
+      }
+      try {
+        const feature = transform.geojsonFromLinearRing(coordinates, crs, {
+          partition: parseInt(data.partition, 10),
+          expand: !data.split,
+        });
+        setTransformed(feature);
+        scroller.scrollTo("result", {
+          duration: 1500,
+          delay: 300,
+          smooth: "easeInOutQuart",
+        });
+      } catch {
+        setTransformError({ type: "transform" });
+        return;
+      }
+      setTransformError(null);
+    },
+    [setTransformError, setTransformed]
+  );
+
+  React.useEffect(() => {
+    if (result.map && distLayer.current) {
+      try {
+        const source = distLayer.current.getSource();
+        source.clear();
+
+        const feature = new GeoJSON({
+          dataProjection: "EPSG:4326",
+          featureProjection: "EPSG:4326",
+        }).readFeature(transformed);
+        source.addFeature(feature);
+
+        const extent = transformed?.bbox
+          ? transformed.bbox
+          : [-180, -90, 180, 90];
+        if (extent[0] > extent[2]) extent[2] += 360;
+
+        result.map.getView().fit(extent, {
+          padding: [40, 20, 40, 20],
+          maxZoom: 20,
+        });
+      } catch {
+        setTransformError({
+          type: "display",
+        });
+        return;
+      }
+    }
+  }, [result.map, transformed, setTransformError]);
+
+  const exportFile = React.useCallback(() => {
+    if (!transformed) return;
+    download(JSON.stringify(transformed), "transformed.geojson", "text/json");
+  }, [transformed]);
+
+  const sample = React.useCallback(async () => {
+    const res = await fetch("/sample.geojson");
+    console.log(res);
+    if (res.ok) {
+      const geojson = await res.json();
+      const crs = geojson?.crs?.properties?.name;
+      const code = crs && crs.replace(/^.*EPSG::/, "");
+      const coordinates = getPolygon(geojson)?.coordinates;
+
+      if (code && Array.isArray(coordinates)) {
+        setValue("code", code);
+        setValue("coordinates", JSON.stringify(coordinates[0]));
+      }
+    }
+  }, [setValue]);
+
   return (
-    <Container>
-      <Typography variant="h2" component="h1">
-        Transform to EPSG:4326
-      </Typography>
-      <Stack mt={4} spacing={4}>
-        <section>
-          <Typography variant="h4" component="h2" sx={{ mb: 2 }}>
-            Input
-          </Typography>
-          <form onSubmit={handleSubmit(onSubmit)}>
-            <Grid container spacing={2}>
-              <Grid item xs={12} md={4}>
-                <Controller
-                  control={control}
-                  name="code"
-                  render={({ field, fieldState: { error } }) => (
-                    <FormControl error fullWidth sx={{ mb: 2 }}>
-                      <TextField
-                        {...field}
-                        label="Projection Code"
-                        InputProps={{
-                          startAdornment: (
-                            <InputAdornment position="start">
-                              EPSG:
-                            </InputAdornment>
-                          ),
-                        }}
-                      />
-                      {error && <FormHelperText>Error</FormHelperText>}
-                    </FormControl>
-                  )}
-                  rules={{
-                    required: true,
-                    pattern: /^[0-9]{1,}$/,
-                  }}
-                />
-                <Controller
-                  control={control}
-                  name="coordinates"
-                  render={({ field, fieldState: { error } }) => (
-                    <FormControl error fullWidth sx={{ mb: 2 }}>
-                      <TextField
-                        {...field}
-                        label="Coordinates"
-                        fullWidth
-                        multiline
-                        rows={6}
-                        placeholder="[[0,0],[1,0],[1,1],[0,1],[0,0]]"
-                      />
-                      {error && <FormHelperText>Error</FormHelperText>}
-                    </FormControl>
-                  )}
-                  rules={{
-                    required: true,
-                    validate: {
-                      parse: (data) => {
-                        return !!parsedLinearRing(data);
-                      },
-                      selfintersection: (data) => {
-                        const points = parsedLinearRing(data);
-                        console.log(data, points);
-                        return points && !utils.selfintersection(points);
-                      },
-                    },
-                  }}
-                />
-              </Grid>
-              <Grid item xs={12} md={8}>
-                <div
-                  ref={ol.ref}
-                  style={{
-                    width: "100%",
-                    height: "480px",
-                  }}
-                />
-              </Grid>
+    <>
+      <Helmet>
+        <title>Transform to EPSG:4326</title>
+        <meta
+          name="description"
+          content="Transform Polygon and export GeoJSON."
+        />
+        <link
+          rel="canonical"
+          href="https://yonda-yonda.github.io/exmap/transform"
+        />
+        <meta name="twitter:card" content="summary_large_image" />
+        <meta name="twitter:title" content="Transform to EPSG:4326" />
+        <meta
+          name="twitter:description"
+          content="様々な投影座標系のポリゴンをEPSG:4326のGeoJSONに変換します。"
+        />
+        <meta
+          property="og:url"
+          content="https://yonda-yonda.github.io/exmap/transform"
+        />
+        <meta
+          name="twitter:image"
+          content="https://yonda-yonda.github.io/exmap/image/twitter_transform.png"
+        />
+      </Helmet>
+      <Container>
+        <Typography variant="h2" component="h1">
+          Transform to EPSG:4326
+        </Typography>
+        <Stack my={4} spacing={8}>
+          <section>
+            <Typography variant="h4" component="h2" sx={{ mb: 2 }}>
+              Input
+            </Typography>
 
-              <Grid item xs={12} sx={{ mt: 1 }}>
-                <Button variant="contained" type="submit">
-                  submit
-                </Button>
-              </Grid>
-            </Grid>
-          </form>
-        </section>
+            <form onSubmit={handleSubmit(onSubmit)}>
+              <Grid container spacing={2}>
+                <Grid item xs={12} md={5}>
+                  <Stack spacing={2}>
+                    <Controller
+                      control={control}
+                      name="code"
+                      render={({ field, fieldState: { invalid, error } }) => (
+                        <FormControl error={invalid} fullWidth>
+                          <TextField
+                            {...field}
+                            label="Projection Code"
+                            error={invalid}
+                            InputProps={{
+                              startAdornment: (
+                                <InputAdornment position="start">
+                                  EPSG:
+                                </InputAdornment>
+                              ),
+                            }}
+                          />
+                          {error?.type === "required" && (
+                            <FormHelperText>
+                              Required. <br />
+                              必須です。入力してください。
+                            </FormHelperText>
+                          )}
+                          {error?.type === "pattern" && (
+                            <FormHelperText>
+                              Must be number. <br />
+                              数値を入力してください。
+                            </FormHelperText>
+                          )}
+                        </FormControl>
+                      )}
+                      rules={{
+                        required: true,
+                        pattern: /^[0-9]{1,}$/,
+                      }}
+                    />
+                    <Controller
+                      control={control}
+                      name="coordinates"
+                      render={({ field, fieldState: { invalid, error } }) => (
+                        <div>
+                          <FormControl error={invalid} fullWidth>
+                            <TextField
+                              {...field}
+                              error={invalid}
+                              label="Coordinates"
+                              fullWidth
+                              multiline
+                              rows={4}
+                              placeholder="[[0,0],[1,0],[1,1],[0,1],[0,0]]"
+                            />
+                            {error?.type === "required" && (
+                              <FormHelperText>
+                                Required. <br />
+                                必須です。入力してください。
+                              </FormHelperText>
+                            )}
+                            {error?.type === "parse" && (
+                              <FormHelperText>
+                                Wrong format. <br />
+                                座標の配列(3点以上)を入力してください。
+                              </FormHelperText>
+                            )}
+                            {error?.type === "selfintersection" && (
+                              <FormHelperText>
+                                not allow self-intersection. <br />
+                                自己交差しています。
+                              </FormHelperText>
+                            )}
+                          </FormControl>
+                          <Button
+                            variant="outlined"
+                            onClick={sample}
+                            size="small"
+                            sx={{ mt: 1 }}
+                          >
+                            set sample
+                          </Button>
+                        </div>
+                      )}
+                      rules={{
+                        required: true,
+                        validate: {
+                          parse: (data) => {
+                            return !!parsedLinearRing(data);
+                          },
+                          selfintersection: (data) => {
+                            const points = parsedLinearRing(data);
+                            return points && !utils.selfintersection(points);
+                          },
+                        },
+                      }}
+                    />
+                    <Controller
+                      control={control}
+                      name="partition"
+                      render={({ field, fieldState: { invalid, error } }) => (
+                        <Tooltip
+                          title={
+                            <span>
+                              The number of points to be inserted between
+                              vertices during the transformation.
+                              <br />
+                              変換時に頂点間に挿入する点の数を指定します。
+                            </span>
+                          }
+                          arrow
+                          placement={middle ? "right" : "top"}
+                        >
+                          <FormControl error fullWidth sx={{ mb: 2 }}>
+                            <TextField
+                              {...field}
+                              label="Insertion Points"
+                              type="number"
+                              size="small"
+                              error={invalid}
+                              InputProps={{
+                                inputProps: {
+                                  max: 20,
+                                  min: 0,
+                                },
+                              }}
+                            />
+                            {error?.type === "min" && (
+                              <FormHelperText>
+                                Must be gte 0. <br />
+                                0以上の値を入力してください。
+                              </FormHelperText>
+                            )}
+                            {error?.type === "max" && (
+                              <FormHelperText>
+                                Must be lte 20. <br />
+                                20以下の値を入力してください。
+                              </FormHelperText>
+                            )}
+                          </FormControl>
+                        </Tooltip>
+                      )}
+                      rules={{
+                        min: 0,
+                        max: 20,
+                      }}
+                    />
+                    <Controller
+                      control={control}
+                      name="split"
+                      render={({ field }) => (
+                        <Tooltip
+                          title={
+                            <span>
+                              Polygon crossing the antemerdian will be split.
+                              <br />
+                              180度線をまたぐ図形ではポリゴンを分割します。
+                            </span>
+                          }
+                          arrow
+                          placement={middle ? "right" : "top"}
+                        >
+                          <FormControl fullWidth sx={{ ml: 1 }}>
+                            <FormControlLabel
+                              {...field}
+                              control={<Switch size="small" />}
+                              label="Split when crossing the antemerdian."
+                            />
+                          </FormControl>
+                        </Tooltip>
+                      )}
+                    />
+                  </Stack>
+                </Grid>
+                <Grid item xs={12} md={7}>
+                  <div
+                    ref={preview.ref}
+                    style={{
+                      width: "100%",
+                      height: "328px",
+                    }}
+                  />
+                </Grid>
 
-        <section>
-          <Typography variant="h4" component="h2">
-            Result
-          </Typography>
-        </section>
-      </Stack>
-    </Container>
+                <Grid item xs={12} sx={{ mt: 1 }}>
+                  <FormControl
+                    error={!!transformError}
+                    fullWidth
+                    sx={{ mb: 2 }}
+                  >
+                    <Button variant="contained" type="submit">
+                      Transform
+                    </Button>
+                    {transformError?.type === "code" && (
+                      <FormHelperText>
+                        Nonexistent Projection Code. <br />
+                        存在しないEPSGコードです。
+                      </FormHelperText>
+                    )}
+                    {transformError?.type === "coordinates" && (
+                      <FormHelperText>
+                        Invalid Coordinates. <br />
+                        無効なポリゴンです。
+                      </FormHelperText>
+                    )}
+                    {transformError?.type === "transform" && (
+                      <FormHelperText>
+                        Failed Transform. <br />
+                        変換に失敗しました。
+                      </FormHelperText>
+                    )}
+                    {transformError?.type === "display" && (
+                      <FormHelperText>
+                        Failed Display. <br />
+                        地図への表示に失敗しました。
+                      </FormHelperText>
+                    )}
+                  </FormControl>
+                </Grid>
+              </Grid>
+            </form>
+          </section>
+
+          {transformed && (
+            <section id="result">
+              <Typography variant="h4" component="h2" sx={{ mb: 2 }}>
+                Result
+              </Typography>
+              <Grid container spacing={2}>
+                <Grid item xs={12} md={5}>
+                  <TextField
+                    fullWidth
+                    multiline
+                    label="GeoJSON"
+                    rows={10}
+                    value={JSON.stringify(transformed, null, 2)}
+                  />
+                  <Button
+                    variant="outlined"
+                    startIcon={<FileDownloadIcon />}
+                    onClick={exportFile}
+                    size="small"
+                    sx={{ mt: 1 }}
+                  >
+                    Export
+                  </Button>
+                </Grid>
+                <Grid item xs={12} md={7}>
+                  <div
+                    ref={result.ref}
+                    style={{
+                      width: "100%",
+                      height: "320px",
+                    }}
+                  />
+                </Grid>
+              </Grid>
+            </section>
+          )}
+        </Stack>
+      </Container>
+    </>
   );
 };
