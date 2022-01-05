@@ -1,5 +1,5 @@
-import * as React from "react";
-import { Helmet } from "react-helmet-async";
+import * as React from "react"
+import { Helmet } from "react-helmet-async"
 import {
   Container,
   Typography,
@@ -13,45 +13,47 @@ import {
   FormControlLabel,
   FormHelperText,
   InputAdornment,
-} from "@mui/material";
-import { useTheme } from "@mui/material/styles";
-import useMediaQuery from "@mui/material/useMediaQuery";
-import FileDownloadIcon from "@mui/icons-material/FileDownload";
-import { useForm, SubmitHandler, Controller } from "react-hook-form";
-import { scroller } from "react-scroll";
-import { View } from "ol";
-import GeoJSON from "ol/format/GeoJSON";
-import VectorLayer from "ol/layer/Vector";
-import VectorSource from "ol/source/Vector";
-import { get as getProjection } from "ol/proj";
-import { register } from "ol/proj/proj4";
-import proj4 from "proj4";
-import type { Feature } from "geojson";
-import { utils, transform } from "geo4326";
+} from "@mui/material"
+import { useTheme } from "@mui/material/styles"
+import useMediaQuery from "@mui/material/useMediaQuery"
+import FileDownloadIcon from "@mui/icons-material/FileDownload"
+import { useForm, SubmitHandler, Controller } from "react-hook-form"
+import { scroller } from "react-scroll"
+import { View } from "ol"
+import OlGeoJSON from "ol/format/GeoJSON"
+import VectorLayer from "ol/layer/Vector"
+import VectorSource from "ol/source/Vector"
+import { get as getProjection } from "ol/proj"
+import { register } from "ol/proj/proj4"
+import proj4 from "proj4"
+import type { Feature } from "geojson"
+import { utils, transform } from "geo4326"
+import type { GeoJSON } from "geojson"
 
-import { useOl } from "~/hooks/useOl";
-import { parsedLinearRing, getPolygon } from "~/scripts/geojson";
-import { download } from "~/scripts/file";
+import { useOl } from "~/hooks/useOl"
+import { parsedLinearRing, getPolygon } from "~/scripts/geojson"
+import { download } from "~/scripts/file"
+import sampleGeoJSON from "~/assets/transform_sample.json"
 
 type Input = {
-  code: string;
-  coordinates: string;
-  partition: string;
-  split: boolean;
-};
+  code: string
+  coordinates: string
+  partition: string
+  split: boolean
+}
 
 type TransformError = {
-  type: "code" | "coordinates" | "transform" | "display";
-};
+  type: "code" | "coordinates" | "transform" | "display"
+}
 
-export const Transform = (): React.ReactElement => {
-  const theme = useTheme();
-  const middle = useMediaQuery(theme.breakpoints.up("md"));
+export default (): React.ReactElement => {
+  const theme = useTheme()
+  const middle = useMediaQuery(theme.breakpoints.up("md"))
 
-  const preview = useOl();
-  const result = useOl();
-  const inputLayer = React.useRef<VectorLayer<any>>();
-  const distLayer = React.useRef<VectorLayer<any>>();
+  const preview = useOl()
+  const result = useOl()
+  const inputLayer = React.useRef<VectorLayer<any>>()
+  const distLayer = React.useRef<VectorLayer<any>>()
   // https://github.com/openlayers/openlayers/issues/12497
 
   const { control, watch, handleSubmit, setValue } = useForm<Input>({
@@ -63,44 +65,44 @@ export const Transform = (): React.ReactElement => {
       partition: "0",
       split: false,
     },
-  });
+  })
 
-  const rawInput = watch();
-  const prevInput = React.useRef<string>();
+  const rawInput = watch()
+  const prevInput = React.useRef<string>()
   const [transformError, setTransformError] =
-    React.useState<TransformError | null>(null);
-  const [transformed, setTransformed] = React.useState<Feature | null>();
+    React.useState<TransformError | null>(null)
+  const [transformed, setTransformed] = React.useState<Feature | null>()
 
   React.useEffect(() => {
     if (preview.map) {
       if (!inputLayer.current) {
         inputLayer.current = new VectorLayer({
           source: new VectorSource({}),
-        });
+        })
 
-        preview.map.addLayer(inputLayer.current);
+        preview.map.addLayer(inputLayer.current)
       }
     }
-  }, [preview.map]);
+  }, [preview.map])
 
   React.useEffect(() => {
     if (result.map) {
       if (!distLayer.current) {
         distLayer.current = new VectorLayer({
           source: new VectorSource({}),
-        });
+        })
 
-        result.map.addLayer(distLayer.current);
+        result.map.addLayer(distLayer.current)
         result.map.setView(
           new View({
             projection: getProjection("EPSG:4326"),
             center: [0, 0],
             zoom: 1,
           })
-        );
+        )
       }
     }
-  }, [result.map]);
+  }, [result.map])
 
   React.useEffect(() => {
     if (
@@ -109,152 +111,147 @@ export const Transform = (): React.ReactElement => {
       prevInput.current !== JSON.stringify(rawInput)
     ) {
       if (rawInput.code.length === 0 || rawInput.coordinates.length === 0)
-        return;
+        return
 
-      const coordinates = parsedLinearRing(rawInput.coordinates);
-      if (!rawInput.code.match(/^[0-9]{1,}$/) || !coordinates) return;
-      prevInput.current = JSON.stringify(rawInput);
-      const code = "EPSG:" + rawInput.code;
-      const currentCode = preview.map.getView().getProjection().getCode();
+      const coordinates = parsedLinearRing(rawInput.coordinates)
+      if (!rawInput.code.match(/^[0-9]{1,}$/) || !coordinates) return
+      prevInput.current = JSON.stringify(rawInput)
+      const code = "EPSG:" + rawInput.code
+      const currentCode = preview.map.getView().getProjection().getCode()
 
       try {
         if (code !== currentCode) {
           if (!getProjection(code)) {
-            const crs = utils.getCrs(code);
+            const crs = utils.getCrs(code)
 
-            proj4.defs(code, crs);
-            register(proj4);
+            proj4.defs(code, crs)
+            register(proj4)
           }
 
-          const projection = getProjection(code);
+          const projection = getProjection(code)
           preview.map.setView(
             new View({
               projection,
               center: [0, 0],
               zoom: 1,
             })
-          );
+          )
         }
       } catch {
-        return;
+        return
       }
 
       try {
-        const source = inputLayer.current.getSource();
-        source.clear();
+        const source = inputLayer.current.getSource()
+        source.clear()
 
-        const feature = new GeoJSON({
+        const feature = new OlGeoJSON({
           dataProjection: code,
           featureProjection: code,
         }).readFeature({
           type: "Polygon",
           coordinates: [coordinates],
-        });
-        source.addFeature(feature);
-        const polygon = feature.getGeometry();
+        })
+        source.addFeature(feature)
+        const polygon = feature.getGeometry()
         polygon &&
           preview.map.getView().fit(polygon, {
             padding: [40, 20, 40, 20],
             maxZoom: 20,
-          });
+          })
       } catch {
-        return;
+        return
       }
     }
-  }, [rawInput, preview.map]);
+  }, [rawInput, preview.map])
 
   const onSubmit: SubmitHandler<Input> = React.useCallback(
-    (data) => {
+    data => {
       if (distLayer.current) {
-        const source = distLayer.current.getSource();
-        source.clear();
+        const source = distLayer.current.getSource()
+        source.clear()
       }
 
-      const code = "EPSG:" + data.code;
+      const code = "EPSG:" + data.code
 
-      let crs: string;
+      let crs: string
       try {
-        crs = utils.getCrs(code);
+        crs = utils.getCrs(code)
       } catch {
-        setTransformError({ type: "code" });
-        return;
+        setTransformError({ type: "code" })
+        return
       }
 
-      const coordinates = parsedLinearRing(data.coordinates);
+      const coordinates = parsedLinearRing(data.coordinates)
       if (!coordinates) {
-        setTransformError({ type: "coordinates" });
-        return;
+        setTransformError({ type: "coordinates" })
+        return
       }
       try {
         const feature = transform.geojsonFromLinearRing(coordinates, crs, {
           partition: parseInt(data.partition, 10),
           expand: !data.split,
-        });
-        setTransformed(feature);
+        })
+        setTransformed(feature)
         scroller.scrollTo("result", {
           duration: 1500,
           delay: 300,
           smooth: "easeInOutQuart",
-        });
+        })
       } catch {
-        setTransformError({ type: "transform" });
-        return;
+        setTransformError({ type: "transform" })
+        return
       }
-      setTransformError(null);
+      setTransformError(null)
     },
     [setTransformError, setTransformed]
-  );
+  )
 
   React.useEffect(() => {
     if (result.map && distLayer.current) {
       try {
-        const source = distLayer.current.getSource();
-        source.clear();
+        const source = distLayer.current.getSource()
+        source.clear()
 
-        const feature = new GeoJSON({
+        const feature = new OlGeoJSON({
           dataProjection: "EPSG:4326",
           featureProjection: "EPSG:4326",
-        }).readFeature(transformed);
-        source.addFeature(feature);
+        }).readFeature(transformed)
+        source.addFeature(feature)
 
         const extent = transformed?.bbox
           ? transformed.bbox
-          : [-180, -90, 180, 90];
-        if (extent[0] > extent[2]) extent[2] += 360;
+          : [-180, -90, 180, 90]
+        if (extent[0] > extent[2]) extent[2] += 360
 
         result.map.getView().fit(extent, {
           padding: [40, 20, 40, 20],
           maxZoom: 20,
-        });
+        })
       } catch {
         setTransformError({
           type: "display",
-        });
-        return;
+        })
+        return
       }
     }
-  }, [result.map, transformed, setTransformError]);
+  }, [result.map, transformed, setTransformError])
 
   const exportFile = React.useCallback(() => {
-    if (!transformed) return;
-    download(JSON.stringify(transformed), "transformed.geojson", "text/json");
-  }, [transformed]);
+    if (!transformed) return
+    download(JSON.stringify(transformed), "transformed.geojson", "text/json")
+  }, [transformed])
 
-  const sample = React.useCallback(async () => {
-    const res = await fetch("/sample.geojson");
-    console.log(res);
-    if (res.ok) {
-      const geojson = await res.json();
-      const crs = geojson?.crs?.properties?.name;
-      const code = crs && crs.replace(/^.*EPSG::/, "");
-      const coordinates = getPolygon(geojson)?.coordinates;
+  const sample = React.useCallback(() => {
+    const crs = sampleGeoJSON?.crs?.properties?.name
+    const code = crs && crs.replace(/^.*EPSG::/, "")
+    const coordinates = getPolygon(sampleGeoJSON as GeoJSON)?.coordinates
 
-      if (code && Array.isArray(coordinates)) {
-        setValue("code", code);
-        setValue("coordinates", JSON.stringify(coordinates[0]));
-      }
+    if (code && Array.isArray(coordinates)) {
+      setValue("code", code)
+      setValue("coordinates", JSON.stringify(coordinates[0]))
     }
-  }, [setValue]);
+  }, [setValue])
 
   return (
     <>
@@ -267,6 +264,15 @@ export const Transform = (): React.ReactElement => {
         <link
           rel="canonical"
           href="https://yonda-yonda.github.io/exmap/transform"
+        />
+        <link
+          rel="icon"
+          type="image/x-icon"
+          href="https://github.githubassets.com/favicon.ico"
+        />
+        <link
+          rel="stylesheet"
+          href="https://fonts.googleapis.com/css?family=Roboto:300,400,500,700&display=swap"
         />
         <meta name="twitter:card" content="summary_large_image" />
         <meta name="twitter:title" content="Transform to EPSG:4326" />
@@ -380,12 +386,12 @@ export const Transform = (): React.ReactElement => {
                       rules={{
                         required: true,
                         validate: {
-                          parse: (data) => {
-                            return !!parsedLinearRing(data);
+                          parse: data => {
+                            return !!parsedLinearRing(data)
                           },
-                          selfintersection: (data) => {
-                            const points = parsedLinearRing(data);
-                            return points && !utils.selfintersection(points);
+                          selfintersection: data => {
+                            const points = parsedLinearRing(data)
+                            return points && !utils.selfintersection(points)
                           },
                         },
                       }}
@@ -555,5 +561,5 @@ export const Transform = (): React.ReactElement => {
         </Stack>
       </Container>
     </>
-  );
-};
+  )
+}

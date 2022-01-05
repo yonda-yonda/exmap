@@ -1,8 +1,9 @@
-import * as React from "react";
-import { Link as RouterLink } from "react-router-dom";
-import { Container, Paper, Typography, Stack, Link } from "@mui/material";
-import CategoryIcon from "@mui/icons-material/Category";
-import { styled } from "@mui/system";
+import * as React from "react"
+import { Link as GatsbyLink } from "gatsby"
+import { Helmet } from "react-helmet-async"
+import { Container, Paper, Typography, Stack, Link } from "@mui/material"
+import CategoryIcon from "@mui/icons-material/Category"
+import { styled } from "@mui/system"
 const StyledPaper = styled(Paper)({
   display: "flex",
   "align-items": "center",
@@ -28,11 +29,25 @@ const StyledPaper = styled(Paper)({
     "line-height": "1",
     "text-align": "center",
   },
-});
+})
 
-export const Top = (): React.ReactElement => {
+export default (): React.ReactElement => {
   return (
     <Container>
+      <Helmet>
+        <title>My Experimental Site</title>
+        <meta name="description" content="Enjoy trial and error!" />
+        <link rel="canonical" href="https://yonda-yonda.github.io/exmap" />
+        <link
+          rel="icon"
+          type="image/x-icon"
+          href="https://github.githubassets.com/favicon.ico"
+        />
+        <link
+          rel="stylesheet"
+          href="https://fonts.googleapis.com/css?family=Roboto:300,400,500,700&display=swap"
+        />
+      </Helmet>
       <Typography variant="h1" component="h1">
         My Experimental Site
       </Typography>
@@ -42,7 +57,7 @@ export const Top = (): React.ReactElement => {
             Contents
           </Typography>
           <Stack mt={1} direction="row" spacing={2}>
-            <RouterLink
+            <GatsbyLink
               to="/transform"
               style={{ color: "inherit", textDecoration: "inherit" }}
             >
@@ -55,7 +70,7 @@ export const Top = (): React.ReactElement => {
                 <CategoryIcon />
                 <span>Transform</span>
               </StyledPaper>
-            </RouterLink>
+            </GatsbyLink>
           </Stack>
         </section>
         <section>
@@ -88,5 +103,5 @@ export const Top = (): React.ReactElement => {
         </section>
       </Stack>
     </Container>
-  );
-};
+  )
+}
