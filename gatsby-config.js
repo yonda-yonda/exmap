@@ -6,6 +6,6 @@
 
 module.exports = {
   /* Your site config here */
-  plugins: ["gatsby-plugin-react-helmet-async"],
-  pathPrefix: "/exmap"
+  plugins: ["gatsby-plugin-react-helmet-async", "gatsby-plugin-material-ui"],
+  pathPrefix: "/exmap",
 }

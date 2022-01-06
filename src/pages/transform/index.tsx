@@ -1,5 +1,6 @@
 import * as React from "react"
 import { Helmet } from "react-helmet-async"
+import CssBaseline from "@mui/material/CssBaseline"
 import {
   Container,
   Typography,
@@ -255,6 +256,7 @@ export default (): React.ReactElement => {
 
   return (
     <>
+      <CssBaseline />
       <Helmet>
         <title>Transform to EPSG:4326</title>
         <meta
