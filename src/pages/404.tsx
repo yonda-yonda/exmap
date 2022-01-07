@@ -1,8 +1,8 @@
-import * as React from "react"
-import CssBaseline from "@mui/material/CssBaseline"
-import { Container, Typography } from "@mui/material"
+import * as React from "react";
+import CssBaseline from "@mui/material/CssBaseline";
+import { Container, Typography } from "@mui/material";
 
-export default (): React.ReactElement => {
+const Noindex = (): React.ReactElement => {
   return (
     <>
       <CssBaseline />
@@ -12,5 +12,7 @@ export default (): React.ReactElement => {
         </Typography>
       </Container>
     </>
-  )
-}
+  );
+};
+
+export default Noindex;

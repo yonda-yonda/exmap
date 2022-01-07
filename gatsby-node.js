@@ -1,4 +1,5 @@
-const resolve = require("path").resolve
+/* eslint-disable-next-line @typescript-eslint/no-var-requires */
+const { resolve } = require("path");
 
 exports.onCreateWebpackConfig = ({ actions }) => {
   actions.setWebpackConfig({
@@ -7,5 +8,5 @@ exports.onCreateWebpackConfig = ({ actions }) => {
         "~": resolve(__dirname, "./src"),
       },
     },
-  })
-}
+  });
+};

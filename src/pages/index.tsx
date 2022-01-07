@@ -1,10 +1,10 @@
-import * as React from "react"
-import { Link as GatsbyLink } from "gatsby"
-import { Helmet } from "react-helmet-async"
-import CssBaseline from "@mui/material/CssBaseline"
-import { Container, Paper, Typography, Stack, Link } from "@mui/material"
-import CategoryIcon from "@mui/icons-material/Category"
-import { styled } from "@mui/system"
+import * as React from "react";
+import { Link as GatsbyLink } from "gatsby";
+import { Helmet } from "react-helmet-async";
+import CssBaseline from "@mui/material/CssBaseline";
+import { Container, Paper, Typography, Stack, Link } from "@mui/material";
+import CategoryIcon from "@mui/icons-material/Category";
+import { styled } from "@mui/system";
 
 const StyledPaper = styled(Paper)({
   display: "flex",
@@ -31,9 +31,9 @@ const StyledPaper = styled(Paper)({
     "line-height": "1",
     "text-align": "center",
   },
-})
+});
 
-export default (): React.ReactElement => {
+const Index = (): React.ReactElement => {
   return (
     <>
       <CssBaseline />
@@ -108,5 +108,7 @@ export default (): React.ReactElement => {
         </Stack>
       </Container>
     </>
-  )
-}
+  );
+};
+
+export default Index;
