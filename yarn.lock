@@ -6025,10 +6025,10 @@ gensync@^1.0.0-beta.1, gensync@^1.0.0-beta.2:
   resolved "https://registry.yarnpkg.com/gensync/-/gensync-1.0.0-beta.2.tgz#32a6ee76c3d7f52d46b2b1ae5d93fea8580a25e0"
   integrity sha512-3hN7NaskYvMDLQY55gnW3NQ+mesEAepTqlg+VEbj7zzqEMBVNhzcGYYeqFo/TlYz6eQiFcp1HcsCZO+nGgS8zg==
 
-geo4326@^1.3.0:
-  version "1.3.1"
-  resolved "https://registry.yarnpkg.com/geo4326/-/geo4326-1.3.1.tgz#1225a826a9b97938205ecf5e66e862e7ec4b1a76"
-  integrity sha512-o/YAd47rezTgiNmfTezDhNT36cI29Fr2dohod3W1sI5GXCQKX0wRVEsFsGSgFmFNyrIYRk8oETEmoXHrVT++dQ==
+geo4326@^1.3.2:
+  version "1.3.2"
+  resolved "https://registry.yarnpkg.com/geo4326/-/geo4326-1.3.2.tgz#acdd647c9a0bac76a851393c957e6a4c9cf69971"
+  integrity sha512-v9n3H/1CMcYR4s9+MmMORMhxQ+LAmGsITgMUF4/uiaas/U6IfDGyCsArc4As4WRDUTI3JFkGQi2GqQ9fwtn6wg==
   dependencies:
     "@types/geojson" "^7946.0.8"
     "@types/proj4" "^2.5.2"

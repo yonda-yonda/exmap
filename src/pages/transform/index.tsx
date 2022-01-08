@@ -28,10 +28,15 @@ import { get as getProjection } from "ol/proj";
 import { register } from "ol/proj/proj4";
 import proj4 from "proj4";
 import { utils, transform } from "geo4326";
-import type { GeoJSON, Feature } from "geojson";
+import type { Feature } from "geojson";
 
 import { useOl } from "~/hooks/useOl";
-import { parsedLinearRing, getPolygon } from "~/scripts/geojson";
+import {
+  parsedLinearRing,
+  getPolygon,
+  getEPSGcode,
+  GeoJSONWithCRS,
+} from "~/scripts/geojson";
 import { download } from "~/scripts/file";
 import sampleGeoJSON from "~/assets/transform_sample.json";
 
@@ -244,12 +249,16 @@ const Transform = (): React.ReactElement => {
   }, [transformed]);
 
   const sample = React.useCallback(() => {
-    const crs = sampleGeoJSON?.crs?.properties?.name;
-    const code = crs && crs.replace(/^.*EPSG::/, "");
-    const coordinates = getPolygon(sampleGeoJSON as GeoJSON)?.coordinates;
+    const code = getEPSGcode(sampleGeoJSON as GeoJSONWithCRS, [
+      "Polygon",
+      "MultiPolygon",
+    ]);
+    const coordinates = getPolygon(
+      sampleGeoJSON as GeoJSONWithCRS
+    )?.coordinates;
 
     if (code && Array.isArray(coordinates)) {
-      setValue("code", code);
+      setValue("code", String(code));
       setValue("coordinates", JSON.stringify(coordinates[0]));
     }
   }, [setValue]);
@@ -391,7 +400,9 @@ const Transform = (): React.ReactElement => {
                           parse: data => !!parsedLinearRing(data),
                           selfintersection: data => {
                             const points = parsedLinearRing(data);
-                            return points && !utils.selfintersection(points);
+                            return points
+                              ? !utils.selfintersection(points)
+                              : true;
                           },
                         },
                       }}

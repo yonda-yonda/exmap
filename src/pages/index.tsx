@@ -4,13 +4,14 @@ import { Helmet } from "react-helmet-async";
 import CssBaseline from "@mui/material/CssBaseline";
 import { Container, Paper, Typography, Stack, Link } from "@mui/material";
 import CategoryIcon from "@mui/icons-material/Category";
+import ContentCutIcon from "@mui/icons-material/ContentCut";
 import { styled } from "@mui/system";
 
 const StyledPaper = styled(Paper)({
   display: "flex",
-  "align-items": "center",
-  "justify-content": "center",
-  "flex-direction": "column",
+  alignItems: "center",
+  justifyContent: "center",
+  flexDirection: "column",
   width: "100px",
   height: "100px",
   "&:hover": {
@@ -20,16 +21,16 @@ const StyledPaper = styled(Paper)({
     transform: "scale(0.96)",
   },
   "& svg": {
-    "font-size": "28px",
+    fontSize: "28px",
   },
   "& span": {
     display: "block",
-    "font-size": "10px",
-    "margin-bottom": "-12px",
-    "margin-top": "10px",
-    "word-break": "break-all",
-    "line-height": "1",
-    "text-align": "center",
+    fontSize: "10px",
+    marginBottom: "-12px",
+    marginTop: "10px",
+    wordBreak: "break-all",
+    lineHeight: "1",
+    textAlign: "center",
   },
 });
 
@@ -73,6 +74,20 @@ const Index = (): React.ReactElement => {
                 >
                   <CategoryIcon />
                   <span>Transform</span>
+                </StyledPaper>
+              </GatsbyLink>
+              <GatsbyLink
+                to="/simplify"
+                style={{ color: "inherit", textDecoration: "inherit" }}
+              >
+                <StyledPaper
+                  variant="outlined"
+                  sx={{
+                    padding: 1,
+                  }}
+                >
+                  <ContentCutIcon />
+                  <span>Simplify</span>
                 </StyledPaper>
               </GatsbyLink>
             </Stack>
