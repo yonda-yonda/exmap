@@ -665,7 +665,7 @@ const Simplify = (): React.ReactElement => {
                     {simplifyError?.type === "simplify" && (
                       <FormHelperText>
                         Failed Simplify. <br />
-                        変換に失敗しました。
+                        簡略化に失敗しました。
                       </FormHelperText>
                     )}
                     {simplifyError?.type === "display" && (
