@@ -313,7 +313,7 @@ const Transform = (): React.ReactElement => {
             <form onSubmit={handleSubmit(onSubmit)}>
               <Grid container spacing={2}>
                 <Grid item xs={12} md={5}>
-                  <Stack spacing={2}>
+                  <Stack spacing={3}>
                     <Controller
                       control={control}
                       name="code"
@@ -489,7 +489,7 @@ const Transform = (): React.ReactElement => {
                     ref={preview.ref}
                     style={{
                       width: "100%",
-                      height: "328px",
+                      height: "340px",
                     }}
                   />
                 </Grid>
@@ -536,15 +536,15 @@ const Transform = (): React.ReactElement => {
           {transformed && (
             <section id="result">
               <Typography variant="h4" component="h2" sx={{ mb: 2 }}>
-                Result
+                Output
               </Typography>
               <Grid container spacing={2}>
                 <Grid item xs={12} md={5}>
                   <TextField
                     fullWidth
                     multiline
-                    label="GeoJSON"
-                    rows={10}
+                    label="GeoJSON of EPSG:4326"
+                    rows={12}
                     value={JSON.stringify(transformed, null, 2)}
                   />
                   <Button
@@ -562,7 +562,7 @@ const Transform = (): React.ReactElement => {
                     ref={result.ref}
                     style={{
                       width: "100%",
-                      height: "320px",
+                      height: "340px",
                     }}
                   />
                 </Grid>

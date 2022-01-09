@@ -637,7 +637,7 @@ const Simplify = (): React.ReactElement => {
                     ref={preview.ref}
                     style={{
                       width: "100%",
-                      height: "328px",
+                      height: "340px",
                     }}
                   />
                   {inputLength && (
@@ -683,7 +683,7 @@ const Simplify = (): React.ReactElement => {
           {simplified && (
             <section id="result">
               <Typography variant="h4" component="h2" sx={{ mb: 2 }}>
-                Result
+                Output
               </Typography>
               <Grid container spacing={2}>
                 <Grid item xs={12} md={5}>
@@ -691,7 +691,7 @@ const Simplify = (): React.ReactElement => {
                     fullWidth
                     multiline
                     label="GeoJSON"
-                    rows={10}
+                    rows={12}
                     value={JSON.stringify(simplified, null, 2)}
                   />
                   <Button
