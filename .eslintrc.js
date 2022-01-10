@@ -20,11 +20,15 @@ module.exports = {
   settings: {
     "import/resolver": {
       alias: {
-        map: [["~", "./src/"]],
+        map: [
+          ["~", "./src/"]
+        ],
         extensions: [".ts", ".tsx", ".js", ".jsx", ".json"],
       },
     },
-    react: { version: "detect" },
+    react: {
+      version: "detect"
+    },
   },
   parserOptions: {
     ecmaFeatures: {
@@ -34,6 +38,7 @@ module.exports = {
     sourceType: "module",
   },
   plugins: ["react", "react-hooks", "@typescript-eslint", "jest"],
+  ignorePatterns: ["src/scripts/CustomGeoTIFFSource.js"],
   rules: {
     quotes: [2, "double"],
     "react-hooks/rules-of-hooks": "error",

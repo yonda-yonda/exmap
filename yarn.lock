@@ -6035,7 +6035,7 @@ geo4326@^1.3.2:
     epsg-index "^1.2.0"
     proj4 "^2.7.5"
 
-geotiff@^1.0.8:
+geotiff@^1.0.8, geotiff@^1.0.9:
   version "1.0.9"
   resolved "https://registry.yarnpkg.com/geotiff/-/geotiff-1.0.9.tgz#a2037c1f672c0a11bfbac8b46bbc56f901e32198"
   integrity sha512-PY+q1OP8RtQZkx1630pVfC3hEkxFnGW9LwIF/glSzcalyShkrH+W8uM/M4RVY12j4QkDQvRXVKOpU65hq6t0iQ==
