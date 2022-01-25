@@ -35,6 +35,7 @@ import { XYZ } from "ol/source";
 import TileState from "ol/TileState";
 import SourceState from "ol/source/State";
 import { get as getProjection, Projection, transformExtent } from "ol/proj";
+import MousePosition from "ol/control/MousePosition";
 import { register as olRegister } from "ol/proj/proj4";
 import proj4 from "proj4";
 import { utils } from "geo4326";
@@ -122,8 +123,19 @@ const defaultSourcesValue = {
   max: "255",
 };
 
+const Coordinates = styled("div")({
+  position: "absolute",
+  top: 0,
+  left: 0,
+  padding: "2px 4px",
+  fontSize: 10,
+  pointerEvents: "none",
+});
+
 const Viewer = (): React.ReactElement => {
   const ol = useOl();
+  const wrapperRef = React.useRef<HTMLDivElement | null>(null);
+  const positionRef = React.useRef<HTMLDivElement | null>(null);
   const [layerConfs, setLayerConfs] = React.useState<LayerConf[]>([]);
   const [error, setError] = React.useState<FormError | null>(null);
   const [loading, setLoading] = React.useState<boolean>();
@@ -478,6 +490,29 @@ const Viewer = (): React.ReactElement => {
     setError(null);
   }, [setValue, setError]);
 
+  React.useEffect(() => {
+    let mousePositionControl: MousePosition | null = null;
+
+    if (ol.map && positionRef.current) {
+      mousePositionControl = new MousePosition({
+        coordinateFormat: coords => {
+          if (coords)
+            return `lon: ${coords[0].toFixed(4)}, lat: ${coords[1].toFixed(4)}`;
+          return "";
+        },
+        projection: "EPSG:4326",
+        className: "",
+        target: positionRef.current,
+      });
+      ol.map.addControl(mousePositionControl);
+    }
+    return () => {
+      if (ol.map && mousePositionControl) {
+        ol.map.removeControl(mousePositionControl);
+      }
+    };
+  }, [ol.map]);
+
   return (
     <>
       <CssBaseline />
@@ -517,13 +552,16 @@ const Viewer = (): React.ReactElement => {
           <div>
             <Grid container spacing={2}>
               <Grid item xs={9}>
-                <div
-                  ref={ol.ref}
-                  style={{
-                    width: "100%",
-                    height: "340px",
-                  }}
-                />
+                <div style={{ position: "relative" }} ref={wrapperRef}>
+                  <div
+                    ref={ol.ref}
+                    style={{
+                      width: "100%",
+                      height: "340px",
+                    }}
+                  />
+                  <Coordinates ref={positionRef}></Coordinates>
+                </div>
               </Grid>
               <Grid item xs={3}>
                 {layerConfs.length > 0 ? (
