@@ -6,6 +6,7 @@ import { Container, Paper, Typography, Stack, Link } from "@mui/material";
 import CategoryIcon from "@mui/icons-material/Category";
 import ContentCutIcon from "@mui/icons-material/ContentCut";
 import UploadFileIcon from "@mui/icons-material/UploadFile";
+import ColorizeIcon from "@mui/icons-material/Colorize";
 import { styled } from "@mui/system";
 
 const StyledPaper = styled(Paper)({
@@ -103,6 +104,20 @@ const Index = (): React.ReactElement => {
                 >
                   <UploadFileIcon />
                   <span>GeoTIFF</span>
+                </StyledPaper>
+              </GatsbyLink>
+              <GatsbyLink
+                to="/picker"
+                style={{ color: "inherit", textDecoration: "inherit" }}
+              >
+                <StyledPaper
+                  variant="outlined"
+                  sx={{
+                    padding: 1,
+                  }}
+                >
+                  <ColorizeIcon />
+                  <span>Picker</span>
                 </StyledPaper>
               </GatsbyLink>
             </Stack>

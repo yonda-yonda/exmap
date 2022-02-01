@@ -10,6 +10,7 @@ import * as React from "react";
 export interface UseOlProps {
   center?: [number, number];
   zoom?: number;
+  basemap?: boolean;
 }
 
 export interface UseOlValues {
@@ -18,7 +19,11 @@ export interface UseOlValues {
 }
 
 export function useOl(props?: UseOlProps): UseOlValues {
-  const { center = fromLonLat([0, 0]), zoom = 1 } = { ...props };
+  const {
+    center = fromLonLat([0, 0]),
+    zoom = 1,
+    basemap = true,
+  } = { ...props };
 
   const initialized = React.useRef(false);
   const ref = React.useRef<HTMLDivElement>(null);
@@ -30,14 +35,15 @@ export function useOl(props?: UseOlProps): UseOlValues {
       collapsible: false,
     });
     const controls: Control[] = [attribution];
-
     const map = new Map({
       target: ref.current,
-      layers: [
-        new TileLayer({
-          source: new OSM(),
-        }),
-      ],
+      layers: basemap
+        ? [
+            new TileLayer({
+              source: new OSM(),
+            }),
+          ]
+        : [],
       view: new View({
         center,
         zoom,
@@ -54,7 +60,7 @@ export function useOl(props?: UseOlProps): UseOlValues {
     });
     setMap(map);
     initialized.current = true;
-  }, [center, zoom]);
+  }, [center, zoom, basemap]);
 
   return {
     ref,
