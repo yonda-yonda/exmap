@@ -40,6 +40,8 @@ import { register as olRegister } from "ol/proj/proj4";
 import proj4 from "proj4";
 import { utils } from "geo4326";
 import { useOl } from "~/hooks/useOl";
+import { useDnDSort } from "~/hooks/useDnDSort";
+
 import * as CustomGeoTIFFSource from "~/scripts/CustomGeoTIFFSource";
 
 const EllipsisWrapper = styled("div")({
@@ -140,6 +142,30 @@ const Viewer = (): React.ReactElement => {
   const [error, setError] = React.useState<FormError | null>(null);
   const [loading, setLoading] = React.useState<boolean>();
 
+  const layerList = useDnDSort<number>({
+    defaultItems: [],
+    mode: "topbottom",
+    drop: (dragIndex, hoverIndex) => {
+      if (dragIndex !== hoverIndex)
+        setLayerConfs(prevList => {
+          if (
+            hoverIndex < 0 ||
+            dragIndex < 0 ||
+            dragIndex > prevList.length - 1 ||
+            hoverIndex > prevList.length - 1
+          ) {
+            return prevList;
+          }
+
+          const nextList = [...prevList];
+          const target = nextList[dragIndex];
+          nextList.splice(dragIndex, 1);
+          nextList.splice(hoverIndex, 0, target);
+          return nextList;
+        });
+    },
+  });
+
   const {
     control,
     handleSubmit,
@@ -176,7 +202,7 @@ const Viewer = (): React.ReactElement => {
           newLayerConfs.splice(index, 1);
           return newLayerConfs;
         }
-        return layerConfs;
+        return newLayerConfs;
       });
     },
     [ol.map]
@@ -198,6 +224,16 @@ const Viewer = (): React.ReactElement => {
     },
     []
   );
+
+  const resetList = layerList.reset;
+  React.useEffect(() => {
+    let zIndex = 0;
+    layerConfs.forEach(({ layer }) => {
+      layer.setZIndex(zIndex++);
+    });
+
+    resetList(Array.from({ length: layerConfs.length }, (_, k) => k));
+  }, [layerConfs, resetList]);
 
   const setLayer = React.useCallback(
     async (
@@ -566,69 +602,76 @@ const Viewer = (): React.ReactElement => {
               <Grid item xs={3}>
                 {layerConfs.length > 0 ? (
                   <StyledUl>
-                    {layerConfs.map(layerConf => {
+                    {layerList.items.map(item => {
+                      const layerConf = layerConfs[item.value];
                       return (
-                        <li key={layerConf.id}>
-                          <Stack
-                            direction="row"
-                            spacing={1}
-                            justifyContent="space-between"
-                            alignItems="center"
+                        layerConf && (
+                          <li
+                            key={layerConf.id}
+                            ref={item.ref}
+                            {...item.events}
                           >
-                            <LayerName>
-                              {layerConf.sources.map((source, i) => {
-                                let name = "";
-                                if (source.blob) name += source.blob.name;
-                                if (source.url)
-                                  name += source.url.split("/").pop();
+                            <Stack
+                              direction="row"
+                              spacing={1}
+                              justifyContent="space-between"
+                              alignItems="center"
+                            >
+                              <LayerName>
+                                {layerConf.sources.map((source, i) => {
+                                  let name = "";
+                                  if (source.blob) name += source.blob.name;
+                                  if (source.url)
+                                    name += source.url.split("/").pop();
 
-                                return (
-                                  <Tooltip
-                                    key={i}
-                                    title={
-                                      <Typography
-                                        variant="caption"
-                                        display="block"
-                                      >
+                                  return (
+                                    <Tooltip
+                                      key={i}
+                                      title={
+                                        <Typography
+                                          variant="caption"
+                                          display="block"
+                                        >
+                                          {name}
+                                          <br />
+                                          bands: {source.bands.join(",")}
+                                          <br />
+                                          range:{" "}
+                                          {`${source.min} to ${source.max}`}
+                                          <br />
+                                          nodata: {source.nodata}
+                                        </Typography>
+                                      }
+                                      arrow
+                                      placement="left"
+                                    >
+                                      <EllipsisTypography variant="body2">
                                         {name}
-                                        <br />
-                                        bands: {source.bands.join(",")}
-                                        <br />
-                                        range:{" "}
-                                        {`${source.min} to ${source.max}`}
-                                        <br />
-                                        nodata: {source.nodata}
-                                      </Typography>
-                                    }
-                                    arrow
-                                    placement="left"
-                                  >
-                                    <EllipsisTypography variant="body2">
-                                      {name}
-                                    </EllipsisTypography>
-                                  </Tooltip>
-                                );
-                              })}
-                              {layerConf.error === "FailedLoadTile" && (
-                                <Typography variant="caption" display="block">
-                                  Failed to load tiles. <br />
-                                  タイルの読み込みに失敗しました。
-                                </Typography>
-                              )}
-                            </LayerName>
-                            <LayerButton>
-                              <Button
-                                size="small"
-                                variant="outlined"
-                                onClick={() => {
-                                  removeLayer(layerConf.id);
-                                }}
-                              >
-                                REMOVE
-                              </Button>
-                            </LayerButton>
-                          </Stack>
-                        </li>
+                                      </EllipsisTypography>
+                                    </Tooltip>
+                                  );
+                                })}
+                                {layerConf.error === "FailedLoadTile" && (
+                                  <Typography variant="caption" display="block">
+                                    Failed to load tiles. <br />
+                                    タイルの読み込みに失敗しました。
+                                  </Typography>
+                                )}
+                              </LayerName>
+                              <LayerButton {...item.propagations}>
+                                <Button
+                                  size="small"
+                                  variant="outlined"
+                                  onClick={() => {
+                                    removeLayer(layerConf.id);
+                                  }}
+                                >
+                                  REMOVE
+                                </Button>
+                              </LayerButton>
+                            </Stack>
+                          </li>
+                        )
                       );
                     })}
                   </StyledUl>
