@@ -22,22 +22,11 @@ import {
   toUserCoordinate,
   toUserExtent,
 } from "ol/proj.js";
-import {
-  clamp
-} from "ol/math.js";
-import {
-  create as createDecoderWorker
-} from "ol/worker/geotiff-decoder.js";
-import {
-  getCenter,
-  getIntersection
-} from "ol/extent.js";
-import {
-  toSize
-} from "ol/size.js";
-import {
-  fromCode as unitsFromCode
-} from "ol/proj/Units.js";
+import { clamp } from "ol/math.js";
+import { create as createDecoderWorker } from "ol/worker/geotiff-decoder.js";
+import { getCenter, getIntersection } from "ol/extent.js";
+import { toSize } from "ol/size.js";
+import { fromCode as unitsFromCode } from "ol/proj/Units.js";
 
 /**
  * @typedef {Object} SourceInfo
@@ -495,9 +484,9 @@ class GeoTIFFSource extends DataTile {
           nodataValue === null ? NaN : nodataValue;
 
         const wantedSamples = this.sourceInfo_[sourceIndex].bands;
-        samplesPerPixel[sourceIndex] = wantedSamples ?
-          wantedSamples.length :
-          image.getSamplesPerPixel();
+        samplesPerPixel[sourceIndex] = wantedSamples
+          ? wantedSamples.length
+          : image.getSamplesPerPixel();
         const level = imageCount - (imageIndex + 1);
 
         if (!sourceExtent) {
@@ -743,7 +732,8 @@ class GeoTIFFSource extends DataTile {
           }
 
           for (
-            let sampleIndex = 0; sampleIndex < samplesPerPixel[sourceIndex];
+            let sampleIndex = 0;
+            sampleIndex < samplesPerPixel[sourceIndex];
             ++sampleIndex
           ) {
             const sourceValue =

@@ -142,7 +142,7 @@ const Viewer = (): React.ReactElement => {
   const [error, setError] = React.useState<FormError | null>(null);
   const [loading, setLoading] = React.useState<boolean>();
 
-  const layerList = useDnDSort<number>({
+  const layerList = useDnDSort<LayerConf>({
     defaultItems: [],
     mode: "topbottom",
     drop: (dragIndex, hoverIndex) => {
@@ -232,7 +232,7 @@ const Viewer = (): React.ReactElement => {
       layer.setZIndex(zIndex++);
     });
 
-    resetList(Array.from({ length: layerConfs.length }, (_, k) => k));
+    resetList([...layerConfs]);
   }, [layerConfs, resetList]);
 
   const setLayer = React.useCallback(
@@ -603,75 +603,68 @@ const Viewer = (): React.ReactElement => {
                 {layerConfs.length > 0 ? (
                   <StyledUl>
                     {layerList.items.map(item => {
-                      const layerConf = layerConfs[item.value];
                       return (
-                        layerConf && (
-                          <li
-                            key={layerConf.id}
-                            ref={item.ref}
-                            {...item.events}
+                        <li key={item.key} ref={item.ref} {...item.trigger}>
+                          <Stack
+                            direction="row"
+                            spacing={1}
+                            justifyContent="space-between"
+                            alignItems="center"
                           >
-                            <Stack
-                              direction="row"
-                              spacing={1}
-                              justifyContent="space-between"
-                              alignItems="center"
-                            >
-                              <LayerName>
-                                {layerConf.sources.map((source, i) => {
-                                  let name = "";
-                                  if (source.blob) name += source.blob.name;
-                                  if (source.url)
-                                    name += source.url.split("/").pop();
+                            <LayerName>
+                              {item.value.sources.map((source, i) => {
+                                let name = "";
+                                if (source.blob) name += source.blob.name;
+                                if (source.url)
+                                  name += source.url.split("/").pop();
 
-                                  return (
-                                    <Tooltip
-                                      key={i}
-                                      title={
-                                        <Typography
-                                          variant="caption"
-                                          display="block"
-                                        >
-                                          {name}
-                                          <br />
-                                          bands: {source.bands.join(",")}
-                                          <br />
-                                          range:{" "}
-                                          {`${source.min} to ${source.max}`}
-                                          <br />
-                                          nodata: {source.nodata}
-                                        </Typography>
-                                      }
-                                      arrow
-                                      placement="left"
-                                    >
-                                      <EllipsisTypography variant="body2">
+                                return (
+                                  <Tooltip
+                                    key={i}
+                                    title={
+                                      <Typography
+                                        variant="caption"
+                                        display="block"
+                                      >
                                         {name}
-                                      </EllipsisTypography>
-                                    </Tooltip>
-                                  );
-                                })}
-                                {layerConf.error === "FailedLoadTile" && (
-                                  <Typography variant="caption" display="block">
-                                    Failed to load tiles. <br />
-                                    タイルの読み込みに失敗しました。
-                                  </Typography>
-                                )}
-                              </LayerName>
-                              <LayerButton {...item.propagations}>
-                                <Button
-                                  size="small"
-                                  variant="outlined"
-                                  onClick={() => {
-                                    removeLayer(layerConf.id);
-                                  }}
-                                >
-                                  REMOVE
-                                </Button>
-                              </LayerButton>
-                            </Stack>
-                          </li>
-                        )
+                                        <br />
+                                        bands: {source.bands.join(",")}
+                                        <br />
+                                        range:{" "}
+                                        {`${source.min} to ${source.max}`}
+                                        <br />
+                                        nodata: {source.nodata}
+                                      </Typography>
+                                    }
+                                    arrow
+                                    placement="left"
+                                  >
+                                    <EllipsisTypography variant="body2">
+                                      {name}
+                                    </EllipsisTypography>
+                                  </Tooltip>
+                                );
+                              })}
+                              {item.value.error === "FailedLoadTile" && (
+                                <Typography variant="caption" display="block">
+                                  Failed to load tiles. <br />
+                                  タイルの読み込みに失敗しました。
+                                </Typography>
+                              )}
+                            </LayerName>
+                            <LayerButton {...item.propagation}>
+                              <Button
+                                size="small"
+                                variant="outlined"
+                                onClick={() => {
+                                  removeLayer(item.value.id);
+                                }}
+                              >
+                                REMOVE
+                              </Button>
+                            </LayerButton>
+                          </Stack>
+                        </li>
                       );
                     })}
                   </StyledUl>

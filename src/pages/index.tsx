@@ -7,6 +7,7 @@ import CategoryIcon from "@mui/icons-material/Category";
 import ContentCutIcon from "@mui/icons-material/ContentCut";
 import UploadFileIcon from "@mui/icons-material/UploadFile";
 import ColorizeIcon from "@mui/icons-material/Colorize";
+import LayersIcon from "@mui/icons-material/Layers";
 import { styled } from "@mui/system";
 
 const StyledPaper = styled(Paper)({
@@ -118,6 +119,20 @@ const Index = (): React.ReactElement => {
                 >
                   <ColorizeIcon />
                   <span>Picker</span>
+                </StyledPaper>
+              </GatsbyLink>
+              <GatsbyLink
+                to="/order"
+                style={{ color: "inherit", textDecoration: "inherit" }}
+              >
+                <StyledPaper
+                  variant="outlined"
+                  sx={{
+                    padding: 1,
+                  }}
+                >
+                  <LayersIcon />
+                  <span>Order</span>
                 </StyledPaper>
               </GatsbyLink>
             </Stack>

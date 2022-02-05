@@ -8,7 +8,7 @@ import { fromLonLat } from "ol/proj";
 import * as React from "react";
 
 export interface UseOlProps {
-  center?: [number, number];
+  center?: number[];
   zoom?: number;
   basemap?: boolean;
 }

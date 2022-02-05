@@ -98,21 +98,20 @@ interface DnDRef<T> {
   hoverIndex: number | null;
 }
 
-interface DnDSortResult<T> {
+export interface DnDSortEvent {
+  onMouseDown: (event: React.MouseEvent<HTMLElement>) => void;
+  onTouchStart: (event: React.TouchEvent<HTMLElement>) => void;
+}
+
+export interface DnDSortResult<T> {
   key: string;
   value: T;
   ref: (element: HTMLElement | null) => void;
-  events: {
-    onMouseDown: (event: React.MouseEvent<HTMLElement>) => void;
-    onTouchStart: (event: React.TouchEvent<HTMLElement>) => void;
-  };
-  propagations: {
-    onMouseDown: (event: React.MouseEvent<HTMLElement>) => void;
-    onTouchStart: (event: React.TouchEvent<HTMLElement>) => void;
-  };
+  trigger: DnDSortEvent;
+  propagation: DnDSortEvent;
 }
 
-interface DnDProps<T> {
+export interface DnDProps<T> {
   defaultItems: T[];
   mode: DnDMode;
   zIndex?: number;
@@ -307,11 +306,11 @@ export const useDnDSort = <T,>(
             index: itemIndex,
           };
         },
-        events: {
+        trigger: {
           onMouseDown: onStart,
           onTouchStart: onStart,
         },
-        propagations: {
+        propagation: {
           onMouseDown: stopPropagation,
           onTouchStart: stopPropagation,
         },
