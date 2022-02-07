@@ -145,22 +145,22 @@ const Viewer = (): React.ReactElement => {
   const layerList = useDnDSort<LayerConf>({
     defaultItems: [],
     mode: "topbottom",
-    drop: (dragIndex, hoverIndex) => {
-      if (dragIndex !== hoverIndex)
+    drop: (draged, hovered) => {
+      if (draged.index !== hovered.index)
         setLayerConfs(prevList => {
           if (
-            hoverIndex < 0 ||
-            dragIndex < 0 ||
-            dragIndex > prevList.length - 1 ||
-            hoverIndex > prevList.length - 1
+            hovered.index < 0 ||
+            draged.index < 0 ||
+            draged.index > prevList.length - 1 ||
+            hovered.index > prevList.length - 1
           ) {
             return prevList;
           }
 
           const nextList = [...prevList];
-          const target = nextList[dragIndex];
-          nextList.splice(dragIndex, 1);
-          nextList.splice(hoverIndex, 0, target);
+          const target = nextList[draged.index];
+          nextList.splice(draged.index, 1);
+          nextList.splice(hovered.index, 0, target);
           return nextList;
         });
     },

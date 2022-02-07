@@ -89,13 +89,18 @@ interface DnDItem<T> {
   index: number;
 }
 
+interface DnDTarget<T> {
+  value: T;
+  index: number;
+}
+
 interface DnDRef<T> {
   keys: Map<T, string>;
   dndItems: DnDItem<T>[];
   canCheckHovered: boolean;
   pointerPosition: Position;
-  dragElement: DnDItem<T> | null;
-  hoverIndex: number | null;
+  dragItem: DnDItem<T> | null;
+  hoverItem: DnDTarget<T> | null;
 }
 
 export interface DnDSortEvent {
@@ -111,20 +116,22 @@ export interface DnDSortResult<T> {
   propagation: DnDSortEvent;
 }
 
+export type Drop<T> = (draged: DnDTarget<T>, hovered: DnDTarget<T>) => void;
+
 export interface DnDProps<T> {
   defaultItems: T[];
   mode: DnDMode;
   zIndex?: number;
   duration?: number;
-  drop?: (dragIndex: number, hoverIndex: number) => void;
+  drop?: Drop<T>;
 }
 
 const getInitState = () => {
   return {
     dndItems: [],
     keys: new Map(),
-    dragElement: null,
-    hoverIndex: null,
+    dragItem: null,
+    hoverItem: null,
     canCheckHovered: true,
     pointerPosition: { x: 0, y: 0 },
   };
@@ -152,13 +159,13 @@ export const useDnDSort = <T,>(
     if (!coordinates) return;
     const { clientX, clientY } = coordinates;
 
-    const { dndItems, dragElement, pointerPosition } = state.current;
-    if (!dragElement) return;
+    const { dndItems, dragItem, pointerPosition } = state.current;
+    if (!dragItem) return;
 
     const x = clientX - pointerPosition.x;
     const y = clientY - pointerPosition.y;
 
-    const dragStyle = dragElement.element.style;
+    const dragStyle = dragItem.element.style;
 
     dragStyle.zIndex = String(zIndex);
     dragStyle.cursor = "grabbing";
@@ -169,7 +176,7 @@ export const useDnDSort = <T,>(
     state.current.canCheckHovered = false;
     setTimeout(() => (state.current.canCheckHovered = true), 300);
 
-    const dragIndex = dndItems.findIndex(({ key }) => key === dragElement.key);
+    const dragIndex = dndItems.findIndex(({ key }) => key === dragItem.key);
 
     const hoveredIndex = dndItems.findIndex(
       ({ element }, index) =>
@@ -177,28 +184,30 @@ export const useDnDSort = <T,>(
         isHover(event, element, mode, index, dndItems.length)
     );
     if (hoveredIndex !== -1) {
-      state.current.hoverIndex = hoveredIndex;
+      state.current.hoverItem = {
+        index: hoveredIndex,
+        value: dndItems[hoveredIndex].value,
+      };
       state.current.pointerPosition.x = clientX;
       state.current.pointerPosition.y = clientY;
       dndItems.splice(dragIndex, 1);
-      dndItems.splice(hoveredIndex, 0, dragElement);
-      const { left: x, top: y } = dragElement.element.getBoundingClientRect();
-      dragElement.position = { x, y };
+      dndItems.splice(hoveredIndex, 0, dragItem);
+      const { left: x, top: y } = dragItem.element.getBoundingClientRect();
+      dragItem.position = { x, y };
       setItems(dndItems.map(v => v.value));
     }
   };
 
   const onEnd = () => {
-    const { dragElement, hoverIndex } = state.current;
-    if (dragElement === null) return;
-    const dragIndex = dragElement.index;
-    const dragStyle = dragElement.element.style;
+    const { dragItem, hoverItem } = state.current;
+    if (dragItem === null) return;
+    const dragStyle = dragItem.element.style;
     dragStyle.zIndex = "";
     dragStyle.cursor = "";
     dragStyle.transform = "";
     dragStyle.userSelect = "";
-    state.current.dragElement = null;
-    state.current.hoverIndex = null;
+    state.current.dragItem = null;
+    state.current.hoverItem = null;
 
     if (window) {
       window.removeEventListener("mouseup", onEnd);
@@ -206,8 +215,13 @@ export const useDnDSort = <T,>(
       window.removeEventListener("touchend", onEnd);
       window.removeEventListener("touchmove", onMove);
     }
+    const draged = {
+      index: dragItem.index,
+      value: dragItem.value,
+    };
+    const hovered = hoverItem ?? draged;
 
-    if (drop) drop(dragIndex, hoverIndex ?? dragIndex);
+    if (drop) drop(draged, hovered);
   };
 
   const reset = React.useCallback((items: T[]) => {
@@ -240,8 +254,8 @@ export const useDnDSort = <T,>(
         const { left: x, top: y } = element.getBoundingClientRect();
         const position: Position = { x, y };
 
-        state.current.dragElement = { key, value, element, position, index };
-
+        state.current.dragItem = { key, value, element, position, index };
+        state.current.hoverItem = null;
         if (window) {
           window.addEventListener("mouseup", onEnd);
           window.addEventListener("mousemove", onMove, { passive: false });
@@ -256,7 +270,7 @@ export const useDnDSort = <T,>(
         ref: (element: HTMLElement | null) => {
           if (!element) return;
 
-          const { dndItems, dragElement, pointerPosition } = state.current;
+          const { dndItems, dragItem, pointerPosition } = state.current;
 
           element.style.transform = "";
           const { left: x, top: y } = element.getBoundingClientRect();
@@ -274,9 +288,9 @@ export const useDnDSort = <T,>(
             });
           }
 
-          if (dragElement?.key === key) {
-            const dragX = dragElement.position.x - position.x;
-            const dragY = dragElement.position.y - position.y;
+          if (dragItem?.key === key) {
+            const dragX = dragItem.position.x - position.x;
+            const dragY = dragItem.position.y - position.y;
             element.style.transform = `translate(${dragX}px,${dragY}px)`;
 
             pointerPosition.x -= dragX;
@@ -291,7 +305,7 @@ export const useDnDSort = <T,>(
             element.style.transform = `translate(${x}px,${y}px)`;
 
             requestAnimationFrame(() => {
-              if (dragElement) {
+              if (dragItem) {
                 element.style.transition = `all ${duration}ms`;
               }
               element.style.transform = "";
