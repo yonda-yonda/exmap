@@ -246,10 +246,10 @@ const Simplify = (): React.ReactElement => {
           properties: {},
           geometry: polygon,
         };
-        if (code === "4326") {
+        if (code !== "4326") {
           feature.crs = {
             type: "name",
-            properties: { name: `urn:ogc:def:crs:EPSG::${code}}` },
+            properties: { name: `urn:ogc:def:crs:EPSG::${code}` },
           };
         }
         const xs = polygon.coordinates[0].map(v => {
