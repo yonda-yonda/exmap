@@ -11,6 +11,7 @@ export interface UseOlProps {
   center?: number[];
   zoom?: number;
   basemap?: boolean;
+  projection?: string;
 }
 
 export interface UseOlValues {
@@ -23,6 +24,7 @@ export function useOl(props?: UseOlProps): UseOlValues {
     center = fromLonLat([0, 0]),
     zoom = 1,
     basemap = true,
+    projection,
   } = { ...props };
 
   const initialized = React.useRef(false);
@@ -47,6 +49,7 @@ export function useOl(props?: UseOlProps): UseOlValues {
       view: new View({
         center,
         zoom,
+        projection,
       }),
       interactions: defaultInteraction({
         altShiftDragRotate: false,
@@ -60,7 +63,7 @@ export function useOl(props?: UseOlProps): UseOlValues {
     });
     setMap(map);
     initialized.current = true;
-  }, [center, zoom, basemap]);
+  }, [center, zoom, basemap, projection]);
 
   return {
     ref,
