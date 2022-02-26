@@ -32,33 +32,35 @@ const Grid = (): React.ReactElement => {
   });
 
   const size = 512;
-  const canvasRef = React.useRef(document.createElement("canvas"));
-  canvasRef.current.width = size;
-  canvasRef.current.height = size;
 
-  function tileLoadFunction(imageTile: Tile, coordString: string) {
-    console.log(coordString);
-    const [z, x, y] = coordString.split(",").map(Number);
+  const tileLoadFunction = React.useCallback(
+    (imageTile: Tile, coordString: string) => {
+      const [z, x, y] = coordString.split(",").map(Number);
 
-    const context = canvasRef.current.getContext("2d");
-    if (!context) return;
-    const half = size / 2;
-    const lineHeight = 80;
-    context.strokeStyle = "white";
-    context.textAlign = "center";
-    context.font = "72px sans-serif";
-    context.clearRect(0, 0, size, size);
-    context.fillStyle = "rgba(100, 100, 100, 0.5)";
-    context.fillRect(0, 0, size, size);
-    context.fillStyle = "black";
-    context.fillText(`z: ${z}`, half, half - lineHeight);
-    context.fillText(`x: ${x}`, half, half);
-    context.fillText(`y: ${y}`, half, half + lineHeight);
-    context.strokeRect(0, 0, size, size);
+      const canvas = document.createElement("canvas");
+      canvas.width = size;
+      canvas.height = size;
+      const context = canvas.getContext("2d");
+      if (!context) return;
+      const half = size / 2;
+      const lineHeight = 80;
+      context.strokeStyle = "white";
+      context.textAlign = "center";
+      context.font = "72px sans-serif";
+      context.clearRect(0, 0, size, size);
+      context.fillStyle = "rgba(100, 100, 100, 0.5)";
+      context.fillRect(0, 0, size, size);
+      context.fillStyle = "black";
+      context.fillText(`z: ${z}`, half, half - lineHeight);
+      context.fillText(`x: ${x}`, half, half);
+      context.fillText(`y: ${y}`, half, half + lineHeight);
+      context.strokeRect(0, 0, size, size);
 
-    ((imageTile as ImageTile).getImage() as HTMLImageElement).src =
-      canvasRef.current.toDataURL();
-  }
+      ((imageTile as ImageTile).getImage() as HTMLImageElement).src =
+        canvas.toDataURL();
+    },
+    []
+  );
 
   React.useEffect(() => {
     if (view4326.map) {
@@ -71,7 +73,7 @@ const Grid = (): React.ReactElement => {
       });
       view4326.map.addLayer(layer);
     }
-  }, [view4326.map]);
+  }, [view4326.map, tileLoadFunction]);
 
   React.useEffect(() => {
     if (view3857.map) {
@@ -91,7 +93,7 @@ const Grid = (): React.ReactElement => {
       });
       view3857.map.addLayer(layer);
     }
-  }, [view3857.map]);
+  }, [view3857.map, tileLoadFunction]);
 
   React.useEffect(() => {
     if (view3995.map) {
@@ -111,7 +113,7 @@ const Grid = (): React.ReactElement => {
       });
       view3995.map.addLayer(layer);
     }
-  }, [view3995.map]);
+  }, [view3995.map, tileLoadFunction]);
 
   return (
     <>
