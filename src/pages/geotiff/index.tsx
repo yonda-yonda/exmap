@@ -31,7 +31,8 @@ import { toSize } from "ol/size";
 import ImageTile from "ol/ImageTile";
 import Tile from "ol/Tile";
 import { WebGLTile } from "ol/layer";
-import { XYZ } from "ol/source";
+import XYZ from "ol/source/XYZ";
+import * as GeoTIFFSource from "ol/source/GeoTIFF";
 import TileState from "ol/TileState";
 import SourceState from "ol/source/State";
 import { get as getProjection, Projection, transformExtent } from "ol/proj";
@@ -41,8 +42,6 @@ import proj4 from "proj4";
 import { utils } from "geo4326";
 import { useOl } from "~/hooks/useOl";
 import { useDnDSort } from "~/hooks/useDnDSort";
-
-import * as CustomGeoTIFFSource from "~/scripts/CustomGeoTIFFSource";
 
 const EllipsisWrapper = styled("div")({
   overflow: "hidden",
@@ -94,8 +93,9 @@ type SourceConfBase = {
 };
 
 type SourceConf = {
-  blob?: File;
-  url?: string;
+  url: string;
+  name: string;
+  revoke: boolean;
 } & SourceConfBase;
 
 type SubmitProps = {
@@ -109,10 +109,13 @@ type FormError =
   | "UnmatchBands"
   | "NotFoundCrs"
   | "UnsupportedCrs";
+
 type LayerError = "FailedLoadTile";
 type LayerConf = {
   layer: WebGLTile;
   error: LayerError | null;
+  id: string;
+  sources: SourceConf[];
 } & SubmitProps;
 
 const defaultSourcesValue = {
@@ -196,11 +199,16 @@ const Viewer = (): React.ReactElement => {
           return id === layerConf.id;
         });
         const target = newLayerConfs[index];
-        if (ol.map && target) {
-          ol.map.removeLayer(target.layer);
+        if (target) {
+          target.sources.forEach(source => {
+            if (source.revoke) URL.revokeObjectURL(source.url);
+          });
+          if (ol.map) {
+            ol.map.removeLayer(target.layer);
 
-          newLayerConfs.splice(index, 1);
-          return newLayerConfs;
+            newLayerConfs.splice(index, 1);
+            return newLayerConfs;
+          }
         }
         return newLayerConfs;
       });
@@ -238,7 +246,7 @@ const Viewer = (): React.ReactElement => {
   const setLayer = React.useCallback(
     async (
       map: Map,
-      source: CustomGeoTIFFSource.default,
+      source: GeoTIFFSource.default,
       id: string,
       sources: SourceConf[]
     ) => {
@@ -264,97 +272,99 @@ const Viewer = (): React.ReactElement => {
         olRegister(proj4);
       }
       const tileGrid = source.getTileGrid();
-      const imageSource = new XYZ({
-        tileGrid: tileGrid,
-        url: "{z},{x},{y}",
-        interpolate: false,
-        tileLoadFunction: function (imageTile: Tile, coordString: string) {
-          const coord = coordString.split(",").map(Number);
-          const tile = source.getTile(
-            coord[0],
-            coord[1],
-            coord[2],
-            1,
-            sourceProjection
-          );
-
-          const setImage = function () {
-            const tilesize = toSize(tileGrid.getTileSize(coord[0]));
-            const canvas = document.createElement("canvas");
-            canvas.width = tilesize[0];
-            canvas.height = tilesize[1];
-            const context = canvas.getContext("2d");
-            if (!context) return;
-            const imgData = context.getImageData(
-              0,
-              0,
-              canvas.width,
-              canvas.height
+      if (tileGrid) {
+        const imageSource = new XYZ({
+          tileGrid: tileGrid,
+          url: "{z},{x},{y}",
+          interpolate: false,
+          tileLoadFunction: function (imageTile: Tile, coordString: string) {
+            const coord = coordString.split(",").map(Number);
+            const tile = source.getTile(
+              coord[0],
+              coord[1],
+              coord[2],
+              1,
+              sourceProjection
             );
 
-            const pixels = imgData.data;
-            const data = tile.getData();
-            if (data instanceof DataView) return;
-            const l = data.length;
-            for (let i = 0; i < l; i++) {
-              pixels[i] = data[i];
-            }
-            context.putImageData(imgData, 0, 0);
-            ((imageTile as ImageTile).getImage() as HTMLImageElement).src =
-              canvas.toDataURL();
-          };
+            const setImage = function () {
+              const tilesize = toSize(tileGrid.getTileSize(coord[0]));
+              const canvas = document.createElement("canvas");
+              canvas.width = tilesize[0];
+              canvas.height = tilesize[1];
+              const context = canvas.getContext("2d");
+              if (!context) return;
+              const imgData = context.getImageData(
+                0,
+                0,
+                canvas.width,
+                canvas.height
+              );
 
-          const tileState = tile.getState();
-          if (tileState === TileState.LOADED) {
-            setImage();
-          } else {
-            const tileListener = () => {
-              const tileState = tile.getState();
-              if (tileState !== TileState.LOADING) {
-                tile.removeEventListener("change", tileListener);
-
-                if (tileState === TileState.LOADED) {
-                  setImage();
-                }
-                if (tileState === TileState.ERROR) {
-                  setLayerError(id, "FailedLoadTile");
-                }
+              const pixels = imgData.data;
+              const data = tile.getData();
+              if (data instanceof DataView) return;
+              const l = data.length;
+              for (let i = 0; i < l; i++) {
+                pixels[i] = data[i];
               }
+              context.putImageData(imgData, 0, 0);
+              ((imageTile as ImageTile).getImage() as HTMLImageElement).src =
+                canvas.toDataURL();
             };
-            tile.addEventListener("change", tileListener);
-            tile.load();
-          }
-        },
-        projection: sourceProjection,
-      });
 
-      const layer = new WebGLTile({
-        source: imageSource,
-      });
-      map.addLayer(layer);
-      setLayerConfs(layerConfs => {
-        return [
-          ...layerConfs,
-          {
-            id,
-            layer,
-            sources,
-            error: null,
+            const tileState = tile.getState();
+            if (tileState === TileState.LOADED) {
+              setImage();
+            } else {
+              const tileListener = () => {
+                const tileState = tile.getState();
+                if (tileState !== TileState.LOADING) {
+                  tile.removeEventListener("change", tileListener);
+
+                  if (tileState === TileState.LOADED) {
+                    setImage();
+                  }
+                  if (tileState === TileState.ERROR) {
+                    setLayerError(id, "FailedLoadTile");
+                  }
+                }
+              };
+              tile.addEventListener("change", tileListener);
+              tile.load();
+            }
           },
-        ];
-      });
-
-      const originExtent = sourceView.extent;
-      if (originExtent) {
-        const transformed = transformExtent(originExtent, code, "EPSG:3857");
-
-        if (transformed[0] > transformed[2])
-          transformed[2] += proj4("EPSG:4326", "EPSG:3857", [180, 0])[0] * 2;
-
-        map.getView().fit(transformed, {
-          padding: [40, 20, 40, 20],
-          maxZoom: 20,
+          projection: sourceProjection,
         });
+
+        const layer = new WebGLTile({
+          source: imageSource,
+        });
+        map.addLayer(layer);
+        setLayerConfs(layerConfs => {
+          return [
+            ...layerConfs,
+            {
+              id,
+              layer,
+              sources,
+              error: null,
+            },
+          ];
+        });
+
+        const originExtent = sourceView.extent;
+        if (originExtent) {
+          const transformed = transformExtent(originExtent, code, "EPSG:3857");
+
+          if (transformed[0] > transformed[2])
+            transformed[2] += proj4("EPSG:4326", "EPSG:3857", [180, 0])[0] * 2;
+
+          map.getView().fit(transformed, {
+            padding: [40, 20, 40, 20],
+            maxZoom: 20,
+          });
+        }
       }
     },
     [setLayerError]
@@ -363,8 +373,8 @@ const Viewer = (): React.ReactElement => {
   const load = React.useCallback(
     ({ sources, id }: SubmitProps) => {
       setLoading(true);
-      const source = new CustomGeoTIFFSource.default({
-        sources: sources as CustomGeoTIFFSource.SourceInfo[],
+      const source = new GeoTIFFSource.default({
+        sources,
       });
 
       const sourceState = source.getState();
@@ -415,7 +425,9 @@ const Viewer = (): React.ReactElement => {
             const file = source.geotiff[0];
             addedId += file.name;
             sources.push({
-              blob: file,
+              url: URL.createObjectURL(file),
+              revoke: true,
+              name: file.name,
               bands,
               min,
               max,
@@ -428,6 +440,8 @@ const Viewer = (): React.ReactElement => {
             addedId += url;
             sources.push({
               url,
+              revoke: false,
+              name: url.split("/").pop() || "",
               bands,
               min,
               max,
@@ -457,6 +471,7 @@ const Viewer = (): React.ReactElement => {
         setError("UnmatchBands");
         return;
       }
+
       const index = layerConfs.findIndex(layerConf => {
         return id === layerConf.id;
       });
@@ -613,11 +628,6 @@ const Viewer = (): React.ReactElement => {
                           >
                             <LayerName>
                               {item.value.sources.map((source, i) => {
-                                let name = "";
-                                if (source.blob) name += source.blob.name;
-                                if (source.url)
-                                  name += source.url.split("/").pop();
-
                                 return (
                                   <Tooltip
                                     key={i}
@@ -625,8 +635,9 @@ const Viewer = (): React.ReactElement => {
                                       <Typography
                                         variant="caption"
                                         display="block"
+                                        {...item.propagation}
                                       >
-                                        {name}
+                                        {source.name}
                                         <br />
                                         bands: {source.bands.join(",")}
                                         <br />
@@ -634,13 +645,14 @@ const Viewer = (): React.ReactElement => {
                                         {`${source.min} to ${source.max}`}
                                         <br />
                                         nodata: {source.nodata}
+                                        {source.url}
                                       </Typography>
                                     }
                                     arrow
                                     placement="left"
                                   >
                                     <EllipsisTypography variant="body2">
-                                      {name}
+                                      {source.name}
                                     </EllipsisTypography>
                                   </Tooltip>
                                 );
