@@ -740,6 +740,7 @@ const Viewer = (): React.ReactElement => {
                               },
                             })}
                             type="file"
+                            disabled={loading}
                           />
 
                           {errors?.sources?.[index]?.geotiff?.type ===
@@ -777,6 +778,7 @@ const Viewer = (): React.ReactElement => {
                                 size="small"
                                 error={invalid}
                                 placeholder="https://"
+                                disabled={loading}
                               />
                               {error?.type === "required" && (
                                 <FormHelperText>
@@ -818,6 +820,7 @@ const Viewer = (): React.ReactElement => {
                                 size="small"
                                 error={invalid}
                                 placeholder="1,2,3"
+                                disabled={loading}
                               />
                               {error?.type === "required" && (
                                 <FormHelperText>
@@ -858,6 +861,7 @@ const Viewer = (): React.ReactElement => {
                                 label="nodata"
                                 size="small"
                                 error={invalid}
+                                disabled={loading}
                               />
                               {error?.type === "required" && (
                                 <FormHelperText>
@@ -895,6 +899,7 @@ const Viewer = (): React.ReactElement => {
                                 label="min"
                                 size="small"
                                 error={invalid}
+                                disabled={loading}
                               />
                               {error?.type === "required" && (
                                 <FormHelperText>
@@ -932,6 +937,7 @@ const Viewer = (): React.ReactElement => {
                                 label="max"
                                 size="small"
                                 error={invalid}
+                                disabled={loading}
                               />
                               {error?.type === "required" && (
                                 <FormHelperText>
@@ -995,6 +1001,7 @@ const Viewer = (): React.ReactElement => {
                     onClick={() => {
                       setError(null);
                     }}
+                    disabled={loading}
                   >
                     Add Layer
                   </Button>
