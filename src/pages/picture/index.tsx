@@ -377,7 +377,7 @@ const Viewer = (): React.ReactElement => {
       <CssBaseline />
       <Helmet>
         <title>Display Image</title>
-        <meta name="description" content="Display Image on map." />
+        <meta name="description" content="Display image on map." />
         <link
           rel="canonical"
           href="https://yonda-yonda.github.io/exmap/picture"
@@ -395,7 +395,7 @@ const Viewer = (): React.ReactElement => {
         <meta name="twitter:title" content="Display Image" />
         <meta
           name="twitter:description"
-          content="PNG, JPEG, GIF, WEBPを表示します"
+          content="PNG JPEG GIF WEBPを表示します"
         />
         <meta
           property="og:url"
