@@ -23,7 +23,10 @@ for (let i = 0; i < 14; ++i) {
 }
 
 const Grid = (): React.ReactElement => {
-  const view4326 = useOl({
+  const view4326_1 = useOl({
+    projection: "EPSG:4326",
+  });
+  const view4326_2 = useOl({
     projection: "EPSG:4326",
   });
   const view3857 = useOl();
@@ -63,7 +66,27 @@ const Grid = (): React.ReactElement => {
   );
 
   React.useEffect(() => {
-    if (view4326.map) {
+    if (view4326_1.map) {
+      const tileGrid = new TileGrid({
+        extent: [-180, -90, 180, 90],
+        tileSize: size,
+        resolutions: defaultResolutions,
+      });
+      const layer = new TileLayer({
+        source: new XYZ({
+          projection: "EPSG:4326",
+          url: "{z},{x},{y}",
+          tileGrid,
+          tileLoadFunction,
+          transition: 0,
+        }),
+      });
+      view4326_1.map.addLayer(layer);
+    }
+  }, [view4326_1.map, tileLoadFunction]);
+
+  React.useEffect(() => {
+    if (view4326_2.map) {
       const layer = new TileLayer({
         source: new XYZ({
           url: "{z},{x},{y}",
@@ -71,9 +94,9 @@ const Grid = (): React.ReactElement => {
           transition: 0,
         }),
       });
-      view4326.map.addLayer(layer);
+      view4326_2.map.addLayer(layer);
     }
-  }, [view4326.map, tileLoadFunction]);
+  }, [view4326_2.map, tileLoadFunction]);
 
   React.useEffect(() => {
     if (view3857.map) {
@@ -131,10 +154,30 @@ const Grid = (): React.ReactElement => {
           rel="stylesheet"
           href="https://fonts.googleapis.com/css?family=Roboto:300,400,500,700&display=swap"
         />
+        <meta name="twitter:card" content="summary_large_image" />
+        <meta name="twitter:title" content="Show Grid" />
+        <meta name="twitter:description" content="Grid座標確認用" />
+        <meta
+          property="og:url"
+          content="https://yonda-yonda.github.io/exmap/grid"
+        />
+        <meta
+          name="twitter:image"
+          content="https://yonda-yonda.github.io/exmap/image/twitter_grid.png"
+        />
       </Helmet>
+      <h1>view EPSG:4326, grid EPSG:4326</h1>
+      <div
+        ref={view4326_1.ref}
+        style={{
+          width: "720px",
+          height: "360px",
+          border: "solid 1px",
+        }}
+      />
       <h1>view EPSG:4326, grid EPSG:3857</h1>
       <div
-        ref={view4326.ref}
+        ref={view4326_2.ref}
         style={{
           width: "720px",
           height: "360px",
