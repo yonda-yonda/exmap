@@ -122,7 +122,7 @@ const Simplify = (): React.ReactElement => {
         result.map.addLayer(distLayer.current);
         result.map.setView(
           new View({
-            projection: getProjection("EPSG:4326"),
+            projection: "EPSG:4326",
             center: [0, 0],
             zoom: 1,
           })
@@ -157,13 +157,14 @@ const Simplify = (): React.ReactElement => {
           }
 
           const projection = getProjection(code);
-          preview.map.setView(
-            new View({
-              projection,
-              center: [0, 0],
-              zoom: 1,
-            })
-          );
+          if (projection)
+            preview.map.setView(
+              new View({
+                projection,
+                center: [0, 0],
+                zoom: 1,
+              })
+            );
         }
       } catch {
         return;
@@ -181,9 +182,9 @@ const Simplify = (): React.ReactElement => {
           coordinates: [coordinates],
         });
         source.addFeature(feature);
-        const polygon = feature.getGeometry();
-        polygon &&
-          preview.map.getView().fit(polygon, {
+        const extent = feature.getGeometry()?.getExtent();
+        extent &&
+          preview.map.getView().fit(extent, {
             padding: [40, 20, 40, 20],
             maxZoom: 20,
           });

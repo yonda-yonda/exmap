@@ -8,6 +8,7 @@ import ContentCutIcon from "@mui/icons-material/ContentCut";
 import UploadFileIcon from "@mui/icons-material/UploadFile";
 import ColorizeIcon from "@mui/icons-material/Colorize";
 import LayersIcon from "@mui/icons-material/Layers";
+import InsertPhotoIcon from "@mui/icons-material/InsertPhoto";
 import { styled } from "@mui/system";
 
 const StyledPaper = styled(Paper)({
@@ -133,6 +134,20 @@ const Index = (): React.ReactElement => {
                 >
                   <LayersIcon />
                   <span>Order</span>
+                </StyledPaper>
+              </GatsbyLink>
+              <GatsbyLink
+                to="/picture"
+                style={{ color: "inherit", textDecoration: "inherit" }}
+              >
+                <StyledPaper
+                  variant="outlined"
+                  sx={{
+                    padding: 1,
+                  }}
+                >
+                  <InsertPhotoIcon />
+                  <span>Image</span>
                 </StyledPaper>
               </GatsbyLink>
             </Stack>
