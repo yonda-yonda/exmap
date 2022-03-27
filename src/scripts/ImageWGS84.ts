@@ -254,10 +254,7 @@ export class ImageWGS84 extends TileImage {
         image.addEventListener("error", () => {
             this.setState(SourceState.ERROR);
         });
-        try {
-            image.src = options.url;
-        } catch {
-            console.log(1111111);
-        }
+
+        image.src = options.url;
     }
 }

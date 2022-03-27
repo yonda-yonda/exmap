@@ -70,16 +70,9 @@ type Input = {
   extent: string;
 };
 
-type SourceConf = {
-  url: string;
-  name: string;
-  revoke: boolean;
-  extent: number[];
-};
-
 type SubmitProps = {
   id: string;
-  source: SourceConf;
+  source: Input;
 };
 
 type FormError =
@@ -90,9 +83,9 @@ type FormError =
 
 type LayerConf = {
   layer: TileLayer<ImageWGS84>;
+  name: string;
   id: string;
-  source: SourceConf;
-} & SubmitProps;
+};
 
 const defaultSourceValue = {
   type: "file",
@@ -165,8 +158,6 @@ const Viewer = (): React.ReactElement => {
         });
         const target = newLayerConfs[index];
         if (target) {
-          if (target.source.revoke) URL.revokeObjectURL(target.source.url);
-
           if (ol.map) {
             ol.map.removeLayer(target.layer);
 
@@ -191,12 +182,33 @@ const Viewer = (): React.ReactElement => {
   }, [layerConfs, resetList]);
 
   const setLayer = React.useCallback(
-    async (map: Map, id: string, source: SourceConf) => {
+    async (map: Map, id: string, source: Input) => {
       setLoading(true);
+      let url = "";
+      let revoke = false;
       try {
+        let name = "";
+        const extent = source.extent.split(",").map(v => Number(v));
+        switch (source.type) {
+          case "file": {
+            if (!(source.files instanceof FileList)) break;
+
+            const file = source.files[0];
+            name = file.name;
+            url = URL.createObjectURL(file);
+            revoke = true;
+            break;
+          }
+          case "url": {
+            url = source.url;
+            name = url;
+            break;
+          }
+        }
+
         const imageSource = new ImageWGS84({
-          url: source.url,
-          imageExtent: source.extent,
+          url,
+          imageExtent: extent,
           crossOrigin: "anonymous",
         });
         const sourceState = imageSource.getState();
@@ -211,13 +223,13 @@ const Viewer = (): React.ReactElement => {
               {
                 id,
                 layer,
-                source,
+                name,
                 error: null,
               },
             ];
           });
 
-          const originExtent = source.extent;
+          const originExtent = extent;
           if (originExtent) {
             const transformed = transformExtent(
               originExtent,
@@ -238,6 +250,7 @@ const Viewer = (): React.ReactElement => {
 
         if (sourceState === SourceState.READY) {
           setting();
+          if (revoke) URL.revokeObjectURL(url);
           setLoading(false);
         } else {
           const sourceListener = () => {
@@ -245,17 +258,20 @@ const Viewer = (): React.ReactElement => {
             if (sourceState === SourceState.ERROR) {
               imageSource.removeEventListener("change", sourceListener);
               setError("FailedLoadSource");
+              if (revoke) URL.revokeObjectURL(url);
               setLoading(false);
             }
             if (sourceState === SourceState.READY) {
               imageSource.removeEventListener("change", sourceListener);
               setting();
+              if (revoke) URL.revokeObjectURL(url);
               setLoading(false);
             }
           };
           imageSource.addEventListener("change", sourceListener);
         }
       } catch {
+        if (revoke) URL.revokeObjectURL(url);
         setLoading(false);
       }
     },
@@ -291,35 +307,22 @@ const Viewer = (): React.ReactElement => {
         return;
       }
       let id = "";
-      let source: SourceConf | null = null;
       switch (data.type) {
         case "file": {
           if (!(data.files instanceof FileList)) break;
 
           const file = data.files[0];
           id += file.name;
-          source = {
-            url: URL.createObjectURL(file),
-            revoke: true,
-            name: file.name,
-            extent,
-          };
           break;
         }
         case "url": {
           const url = data.url;
           id += url;
-          source = {
-            url,
-            revoke: false,
-            name: url.split("/").pop() || "",
-            extent,
-          };
           break;
         }
       }
       id += extent.join(",");
-      if (source) {
+      if (id.length > 0) {
         const index = layerConfs.findIndex(layerConf => {
           return id === layerConf.id;
         });
@@ -329,7 +332,7 @@ const Viewer = (): React.ReactElement => {
         }
         load({
           id,
-          source,
+          source: data,
         });
       }
     },
@@ -445,14 +448,14 @@ const Viewer = (): React.ReactElement => {
                                     display="block"
                                     {...item.propagation}
                                   >
-                                    {item.value.source.name}
+                                    {item.value.name}
                                   </Typography>
                                 }
                                 arrow
                                 placement="left"
                               >
                                 <EllipsisTypography variant="body2">
-                                  {item.value.source.name}
+                                  {item.value.name}
                                 </EllipsisTypography>
                               </Tooltip>
                             </LayerName>
