@@ -112,13 +112,15 @@ export class ImageWGS84 extends TileImage {
                 const [z, x, y] = coordString.split(",").map(Number);
 
                 const canvas = document.createElement("canvas");
-                canvas.width = tileSize;
-                canvas.height = tileSize;
                 const context = canvas.getContext("2d");
-                if (!context || !this.context_) {
+                const tempCanvas = document.createElement("canvas");
+                const tempContext = tempCanvas.getContext("2d");
+                if (!this.context_ || !context || !tempContext) {
                     imageTile.setState(TileState.ERROR);
                     return;
                 }
+                canvas.width = tileSize;
+                canvas.height = tileSize;
 
                 const [leftTopLon, leftTopLat, size] = toLonLat(z, x, y);
                 const [
@@ -165,20 +167,14 @@ export class ImageWGS84 extends TileImage {
                     imageTile.setState(TileState.EMPTY);
                     return
                 }
-
-                const tempCanvas = document.createElement("canvas");
                 tempCanvas.width = sourceRectSize[0];
                 tempCanvas.height = sourceRectSize[1];
-                const tempContext = tempCanvas.getContext("2d");
-                if (tempContext) {
-                    tempContext.clearRect(0, 0, sourceRectSize[0], sourceRectSize[1]);
-                    tempContext.putImageData(this.context_.getImageData(sourceRect[0], sourceRect[1], sourceRectSize[0], sourceRectSize[1]), 0, 0);
-                    context.drawImage(tempCanvas, 0, 0, sourceRectSize[0], sourceRectSize[1], tileRect[0], tileRect[1], tileRectSize[0], tileRectSize[1]);
-                }
+                tempContext.clearRect(0, 0, sourceRectSize[0], sourceRectSize[1]);
+                tempContext.putImageData(this.context_.getImageData(sourceRect[0], sourceRect[1], sourceRectSize[0], sourceRectSize[1]), 0, 0);
+                context.drawImage(tempCanvas, 0, 0, sourceRectSize[0], sourceRectSize[1], tileRect[0], tileRect[1], tileRectSize[0], tileRectSize[1]);
 
-                ((imageTile as ImageTile).getImage() as HTMLImageElement).src =
-                    canvas.toDataURL();
-
+                const src = canvas.toDataURL();
+                ((imageTile as ImageTile).getImage() as HTMLImageElement).src = src;
             };
 
         let interpolate =
@@ -226,7 +222,6 @@ export class ImageWGS84 extends TileImage {
 
         const canvas = document.createElement("canvas");
         const context = canvas.getContext("2d");
-
         if (!context) {
             this.context_ = null;
             return;
