@@ -7,15 +7,34 @@ import {
 import {
     getHeight,
     getWidth,
-}
-    from "ol/extent";
+} from "ol/extent";
 import {
-    toSize
-} from "ol/size.js";
+    get as getCachedProjection,
+} from "ol/proj";
 import ImageTile from "ol/ImageTile";
 import Tile from "ol/Tile";
 import TileGrid from "ol/tilegrid/TileGrid";
 import TileImage, { Options as TileImageOptions } from "ol/source/TileImage";
+import { PROJECTIONS as EPSG4326_PROJECTIONS } from "ol/proj/epsg4326";
+import { PROJECTIONS as EPSG3857_PROJECTIONS } from "ol/proj/epsg3857";
+
+const HALF_WORLD_3857 = Math.PI * 6378137;
+const EXTENT = {
+    3857: [-HALF_WORLD_3857, -HALF_WORLD_3857, HALF_WORLD_3857, HALF_WORLD_3857],
+    4326: [-180, -90, 180, 90],
+};
+
+function is4326(code?: string) {
+    return !!(EPSG4326_PROJECTIONS.find((projection) => {
+        return projection.getCode() === code
+    }))
+}
+function is3857(code?: string) {
+    return !!(EPSG3857_PROJECTIONS.find((projection) => {
+        return projection.getCode() === code
+    }))
+}
+
 
 function rotateExtent(extent: number[], rad: number): number[] {
     const center = [(extent[2] - extent[0]) / 2 + extent[0], (extent[3] - extent[1]) / 2 + extent[1]];
@@ -44,46 +63,57 @@ function rotateExtent(extent: number[], rad: number): number[] {
     ];
 }
 
+interface ResolutionsFromExtentOptions {
+    maxZoom?: number;
+    tileSize?: number;
+    maxResolution?: number;
+    sourceResolution?: number;
+}
 function resolutionsFromExtent(
     extent: number[],
-    opt_maxZoom?: number,
-    opt_tileSize?: number,
-    opt_maxResolution?: number
+    options?: ResolutionsFromExtentOptions
 ): number[] {
-    const maxZoom = opt_maxZoom !== undefined ? opt_maxZoom : DEFAULT_MAX_ZOOM;
+    const maxZoom = options?.maxZoom !== undefined ? options.maxZoom : DEFAULT_MAX_ZOOM;
 
     const height = getHeight(extent);
     const width = getWidth(extent);
 
-    const tileSize = toSize(
-        opt_tileSize !== undefined ? opt_tileSize : DEFAULT_TILE_SIZE
-    );
+    const tileSize = options?.tileSize !== undefined ? options.tileSize : DEFAULT_TILE_SIZE;
     const maxResolution =
-        opt_maxResolution && opt_maxResolution > 0 ?
-            opt_maxResolution :
-            Math.max(width / tileSize[0], height / tileSize[1]);
+        options?.maxResolution && options.maxResolution > 0 ?
+            options.maxResolution :
+            Math.max(width / tileSize, height / tileSize);
+
+    const sourceResolution =
+        options?.sourceResolution && options.sourceResolution > 0 ? options.sourceResolution : 0;
+
 
     const length = maxZoom + 1;
-    const resolutions: number[] = new Array(length);
+    const resolutions: number[] = [];
     for (let z = 0; z < length; ++z) {
-        resolutions[z] = maxResolution / Math.pow(2, z + 1);
+        const resolution = maxResolution / Math.pow(2, z);
+        if (resolution < sourceResolution) break;
+        resolutions.push(resolution);
     }
     return resolutions;
 }
 
-function toLonLat(z: number, x: number, y: number): number[] {
-    const size = 180 / (2 ** z);
-    const lon = -180 + x * size;
-    const lat = 90 - y * size;
-    return [lon, lat, size]
+function getWindow(gridExtent: number[], z: number, x: number, y: number,): number[] {
+    const size = Math.max(gridExtent[2] - gridExtent[0], gridExtent[3] - gridExtent[1]) / (2 ** z);
+    const left = gridExtent[0] + x * size;
+    const top = gridExtent[3] - y * size;
+    const right = left + size;
+    const bottom = top - size;
+
+    return [left, top, right, bottom]
 }
 
 function crossing(extentLeft: number[], extentRight: number[]): boolean {
-    return Math.max(extentLeft[0], extentRight[0]) <= Math.min(extentLeft[2], extentRight[2]) && Math.max(extentLeft[1], extentRight[1]) <= Math.min(extentLeft[3], extentRight[3])
+    return Math.max(extentLeft[0], extentRight[0]) <= Math.min(extentLeft[2], extentRight[2]) &&
+        Math.max(extentLeft[1], extentRight[1]) <= Math.min(extentLeft[3], extentRight[3])
 }
 
-
-export type ImageWGS84Props = {
+export type ImageGridProps = {
     url: string;
     imageExtent: number[];
     rotate?: number;
@@ -92,25 +122,22 @@ export type ImageWGS84Props = {
     tileSize?: number;
 } & TileImageOptions;
 
-export class ImageWGS84 extends TileImage {
+export class ImageGrid extends TileImage {
     private imageExtent_: number[];
     private context_: CanvasRenderingContext2D | null;
 
-    constructor(opt_options: ImageWGS84Props) {
-        const options = opt_options || {};
+    constructor(userOptions: ImageGridProps) {
+        const options = userOptions || {};
         const tileSize = options.tileSize ? options.tileSize : DEFAULT_TILE_SIZE;
-        const gridExtent = [-180, -90, 180, 90];
-        const tileGrid = new TileGrid({
-            extent: gridExtent,
-            tileSize: tileSize,
-            minZoom: opt_options.minZoom,
-            resolutions: resolutionsFromExtent(gridExtent, opt_options.maxZoom, tileSize, 360 / tileSize),
-        });
+
+        const projection = getCachedProjection(options.projection);
+        const code = projection?.getCode();
+        const gridExtent = is4326(code) ? EXTENT[4326] : is3857(code) ? EXTENT[3857] : null;
+        if (!projection || !gridExtent) throw new Error("Unsupported projection");
 
         const tileLoadFunction =
             (imageTile: Tile, coordString: string) => {
                 const [z, x, y] = coordString.split(",").map(Number);
-
                 const canvas = document.createElement("canvas");
                 const context = canvas.getContext("2d");
                 const tempCanvas = document.createElement("canvas");
@@ -122,22 +149,22 @@ export class ImageWGS84 extends TileImage {
                 canvas.width = tileSize;
                 canvas.height = tileSize;
 
-                const [leftTopLon, leftTopLat, size] = toLonLat(z, x, y);
+                const window = getWindow(gridExtent, z, x, y);
+                let tileLeft = window[0];
+                let tileRight = window[2];
+                const tileTop = window[1];
+                const tileBottom = window[3];
                 const [
                     imageExtentLeft, imageExtentBottom, imageExtentRight, imageExtentTop
                 ] = this.imageExtent_;
 
-                let tileLeft = leftTopLon;
-                let tileRight = leftTopLon + size;
-                const tileBottom = leftTopLat - size;
-                const tileTop = leftTopLat;
-
-                if (imageExtentLeft < -180 && 0 < tileRight) {
-                    tileLeft -= 360;
-                    tileRight -= 360;
-                } else if (180 < imageExtentRight && tileLeft < 0) {
-                    tileLeft += 360;
-                    tileRight += 360;
+                const extentWidth = gridExtent[2] - gridExtent[0];
+                if (imageExtentLeft < gridExtent[0] && 0 < tileRight) {
+                    tileLeft -= extentWidth;
+                    tileRight -= extentWidth;
+                } else if (gridExtent[2] < imageExtentRight && tileLeft < 0) {
+                    tileLeft += extentWidth;
+                    tileRight += extentWidth;
                 }
 
                 if (!crossing([
@@ -189,9 +216,8 @@ export class ImageWGS84 extends TileImage {
             crossOrigin: options.crossOrigin,
             interpolate: interpolate,
             opaque: options.opaque,
-            projection: "EPSG:4326",
+            projection,
             reprojectionErrorThreshold: options.reprojectionErrorThreshold,
-            tileGrid: tileGrid,
             tileLoadFunction,
             tilePixelRatio: options.tilePixelRatio,
             url: "{z},{x},{y}",
@@ -205,13 +231,16 @@ export class ImageWGS84 extends TileImage {
         if (Array.isArray(options.imageExtent) && options.imageExtent.length > 3) {
             this.imageExtent_ = options.imageExtent;
         }
+
+        const extentWidth = gridExtent[2] - gridExtent[0];
+        const extentHeight = gridExtent[3] - gridExtent[1];
         if (
-            this.imageExtent_[0] < -360 || 360 < this.imageExtent_[0] ||
-            this.imageExtent_[1] < -90 || 90 < this.imageExtent_[1] ||
-            this.imageExtent_[2] < -360 || 360 < this.imageExtent_[2] ||
-            this.imageExtent_[3] < -90 || 90 < this.imageExtent_[3] ||
+            this.imageExtent_[0] < -gridExtent[0] - extentWidth / 2 || gridExtent[2] + extentWidth / 2 < this.imageExtent_[0] ||
+            this.imageExtent_[1] < gridExtent[1] || gridExtent[3] < this.imageExtent_[1] ||
+            this.imageExtent_[2] < -gridExtent[0] - extentWidth / 2 || gridExtent[2] + extentWidth / 2 < this.imageExtent_[2] ||
+            this.imageExtent_[3] < gridExtent[1] || gridExtent[3] < this.imageExtent_[3] ||
             this.imageExtent_[2] <= this.imageExtent_[0] ||
-            this.imageExtent_[0] - this.imageExtent_[2] > 360
+            this.imageExtent_[0] - this.imageExtent_[2] > extentWidth
         ) throw new Error("invalid extent.");
 
         let rad = 0;
@@ -233,6 +262,24 @@ export class ImageWGS84 extends TileImage {
         image.crossOrigin = options.crossOrigin || "";
 
         image.addEventListener("load", () => {
+            const sourceResolution = Math.max(
+                (this.imageExtent_[2] - this.imageExtent_[0]) / image.width,
+                (this.imageExtent_[3] - this.imageExtent_[1]) / image.height
+            );
+            const maxResolution = Math.max(extentWidth, extentHeight) / tileSize;
+            const tileGrid = new TileGrid({
+                extent: gridExtent,
+                tileSize: tileSize,
+                minZoom: options.minZoom,
+                resolutions: resolutionsFromExtent(gridExtent, {
+                    maxZoom: options.maxZoom,
+                    tileSize: tileSize,
+                    maxResolution,
+                    sourceResolution,
+                }),
+            });
+            if (tileGrid)
+                this.tileGrid = tileGrid;
             const rotatedCoordinates = rotateExtent([0, 0, image.width, image.height], rad);
             const rotatedWidth = rotatedCoordinates[2] - rotatedCoordinates[0];
             const rotatedHeight = rotatedCoordinates[3] - rotatedCoordinates[1];

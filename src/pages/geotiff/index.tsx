@@ -335,12 +335,20 @@ const Viewer = (): React.ReactElement => {
 
         const originExtent = sourceView.extent;
         if (originExtent) {
-          const transformed = transformExtent(originExtent, code, "EPSG:3857");
+          let extent = originExtent;
+          if (code !== "EPSG:3857") {
+            const transformed = transformExtent(
+              originExtent,
+              code,
+              "EPSG:3857"
+            );
 
-          if (transformed[0] > transformed[2])
-            transformed[2] += proj4("EPSG:4326", "EPSG:3857", [180, 0])[0] * 2;
+            if (transformed[0] > transformed[2])
+              transformed[2] += proj4(code, "EPSG:3857", [180, 0])[0] * 2;
 
-          map.getView().fit(transformed, {
+            extent = transformed;
+          }
+          map.getView().fit(extent, {
             padding: [40, 20, 40, 20],
             maxZoom: 20,
           });

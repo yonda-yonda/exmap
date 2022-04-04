@@ -27,7 +27,8 @@ import MousePosition from "ol/control/MousePosition";
 import proj4 from "proj4";
 import { useOl } from "~/hooks/useOl";
 import { useDnDSort } from "~/hooks/useDnDSort";
-import { ImageWGS84 } from "~/scripts/ImageWGS84";
+
+import { ImageGrid } from "~/scripts/ImageGrid";
 
 const Hint = styled("div")({
   fontSize: "12px",
@@ -64,6 +65,7 @@ const StyledUl = styled("ul")({
 });
 
 type Input = {
+  code: string;
   type: string;
   url: string;
   files: FileList | string;
@@ -79,15 +81,17 @@ type FormError =
   | "Duplicate"
   | "InvalidExtent"
   | "ReversedExtent"
+  | "UnsupportedExtent"
   | "FailedLoadSource";
 
 type LayerConf = {
-  layer: TileLayer<ImageWGS84>;
+  layer: TileLayer<ImageGrid>;
   name: string;
   id: string;
 };
 
 const defaultSourceValue = {
+  code: "EPSG:4326",
   type: "file",
   files: "",
   url: "",
@@ -186,35 +190,44 @@ const Viewer = (): React.ReactElement => {
       setLoading(true);
       let url = "";
       let revoke = false;
-      try {
-        let name = "";
-        const extent = source.extent.split(",").map(v => Number(v));
-        switch (source.type) {
-          case "file": {
-            if (!(source.files instanceof FileList)) break;
+      let name = "";
+      const code = source.code;
+      const extent = source.extent.split(",").map(v => Number(v));
+      switch (source.type) {
+        case "file": {
+          if (!(source.files instanceof FileList)) break;
 
-            const file = source.files[0];
-            name = file.name;
-            url = URL.createObjectURL(file);
-            revoke = true;
-            break;
-          }
-          case "url": {
-            url = source.url;
-            name = url;
-            break;
-          }
+          const file = source.files[0];
+          name = file.name;
+          url = URL.createObjectURL(file);
+          revoke = true;
+          break;
         }
-
-        const imageSource = new ImageWGS84({
+        case "url": {
+          url = source.url;
+          name = url;
+          break;
+        }
+      }
+      let imageSource: ImageGrid | null = null;
+      try {
+        imageSource = new ImageGrid({
+          projection: code,
           url,
           imageExtent: extent,
           crossOrigin: "anonymous",
         });
-        const sourceState = imageSource.getState();
+      } catch {
+        setError("UnsupportedExtent");
+        if (revoke) URL.revokeObjectURL(url);
+        setLoading(false);
+      }
+      if (imageSource) {
+        const source = imageSource;
+        const sourceState = source.getState();
         const setting = () => {
           const layer = new TileLayer({
-            source: imageSource,
+            source,
           });
           map.addLayer(layer);
           setLayerConfs(layerConfs => {
@@ -233,13 +246,12 @@ const Viewer = (): React.ReactElement => {
           if (originExtent) {
             const transformed = transformExtent(
               originExtent,
-              "EPSG:4326",
+              code,
               "EPSG:3857"
             );
 
             if (transformed[0] > transformed[2])
-              transformed[2] +=
-                proj4("EPSG:4326", "EPSG:3857", [180, 0])[0] * 2;
+              transformed[2] += proj4(code, "EPSG:3857", [180, 0])[0] * 2;
 
             map.getView().fit(transformed, {
               padding: [40, 20, 40, 20],
@@ -254,15 +266,15 @@ const Viewer = (): React.ReactElement => {
           setLoading(false);
         } else {
           const sourceListener = () => {
-            const sourceState = imageSource.getState();
+            const sourceState = source.getState();
             if (sourceState === SourceState.ERROR) {
-              imageSource.removeEventListener("change", sourceListener);
+              source.removeEventListener("change", sourceListener);
               setError("FailedLoadSource");
               if (revoke) URL.revokeObjectURL(url);
               setLoading(false);
             }
             if (sourceState === SourceState.READY) {
-              imageSource.removeEventListener("change", sourceListener);
+              source.removeEventListener("change", sourceListener);
               setting();
               if (revoke) URL.revokeObjectURL(url);
               setLoading(false);
@@ -270,9 +282,6 @@ const Viewer = (): React.ReactElement => {
           };
           imageSource.addEventListener("change", sourceListener);
         }
-      } catch {
-        if (revoke) URL.revokeObjectURL(url);
-        setLoading(false);
       }
     },
     []
@@ -342,6 +351,7 @@ const Viewer = (): React.ReactElement => {
   const watcher = watch();
   const sample = React.useCallback(() => {
     reset();
+    setValue("code", "EPSG:4326");
     setValue("type", "url");
     setValue(
       "url",
@@ -583,6 +593,33 @@ const Viewer = (): React.ReactElement => {
                 <Stack direction="row" spacing={4} sx={{ mt: 2, mb: 1 }}>
                   <Controller
                     control={control}
+                    name="code"
+                    render={({ field, fieldState: { invalid, error } }) => (
+                      <FormControl
+                        component="fieldset"
+                        error={invalid}
+                        fullWidth
+                      >
+                        <TextField
+                          {...field}
+                          label="Code"
+                          size="small"
+                          error={invalid}
+                        />
+                        {error?.type === "required" && (
+                          <FormHelperText>
+                            Required. <br />
+                            必須です。入力してください。
+                          </FormHelperText>
+                        )}
+                      </FormControl>
+                    )}
+                    rules={{
+                      required: true,
+                    }}
+                  />
+                  <Controller
+                    control={control}
                     name="extent"
                     render={({ field, fieldState: { invalid, error } }) => (
                       <FormControl
@@ -595,7 +632,7 @@ const Viewer = (): React.ReactElement => {
                           label="Extent"
                           size="small"
                           error={invalid}
-                          placeholder="left laongitude, bottom latitude, right longitude, top latitude"
+                          placeholder="left, bottom, right, top"
                         />
                         {error?.type === "required" && (
                           <FormHelperText>
@@ -649,6 +686,12 @@ const Viewer = (): React.ReactElement => {
                   <FormHelperText sx={{ ml: 0 }}>
                     Some values of Extent are reversed. <br />
                     Extentに大小が逆の値が含まれています。
+                  </FormHelperText>
+                )}
+                {error === "UnsupportedExtent" && (
+                  <FormHelperText sx={{ ml: 0 }}>
+                    Some values of Extent are unsupported. <br />
+                    Extentにサポート外の値が含まれています。
                   </FormHelperText>
                 )}
                 {error === "FailedLoadSource" && (
