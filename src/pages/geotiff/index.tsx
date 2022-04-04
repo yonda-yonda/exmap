@@ -15,11 +15,8 @@ import {
   TextField,
   Button,
   IconButton,
-  RadioGroup,
-  Radio,
   Tooltip,
   FormControl,
-  FormControlLabel,
   FormHelperText,
 } from "@mui/material";
 import { styled } from "@mui/system";
@@ -75,9 +72,7 @@ const StyledUl = styled("ul")({
 
 type Input = {
   sources: {
-    type: string;
     url: string;
-    geotiff: FileList | string;
     bands: string;
     nodata: string;
     min: string;
@@ -95,7 +90,6 @@ type SourceConfBase = {
 type SourceConf = {
   url: string;
   name: string;
-  revoke: boolean;
 } & SourceConfBase;
 
 type SubmitProps = {
@@ -119,9 +113,7 @@ type LayerConf = {
 } & SubmitProps;
 
 const defaultSourcesValue = {
-  type: "file",
   url: "",
-  geotiff: "",
   bands: "1,2,3",
   nodata: "0",
   min: "0",
@@ -169,15 +161,7 @@ const Viewer = (): React.ReactElement => {
     },
   });
 
-  const {
-    control,
-    handleSubmit,
-    register,
-    watch,
-    reset,
-    setValue,
-    formState: { errors },
-  } = useForm<Input>({
+  const { control, handleSubmit, reset, setValue } = useForm<Input>({
     mode: "onSubmit",
     criteriaMode: "all",
     defaultValues: {
@@ -189,7 +173,6 @@ const Viewer = (): React.ReactElement => {
     name: "sources",
     control,
   });
-  const watcher = watch("sources");
 
   const removeLayer = React.useCallback(
     (id: string) => {
@@ -200,9 +183,6 @@ const Viewer = (): React.ReactElement => {
         });
         const target = newLayerConfs[index];
         if (target) {
-          target.sources.forEach(source => {
-            if (source.revoke) URL.revokeObjectURL(source.url);
-          });
           if (ol.map) {
             ol.map.removeLayer(target.layer);
 
@@ -417,39 +397,16 @@ const Viewer = (): React.ReactElement => {
         const max = parseFloat(source.max);
         const nodata = parseFloat(source.nodata);
 
-        let addedId = "";
-        switch (source.type) {
-          case "file": {
-            if (!(source.geotiff instanceof FileList)) break;
-
-            const file = source.geotiff[0];
-            addedId += file.name;
-            sources.push({
-              url: URL.createObjectURL(file),
-              revoke: true,
-              name: file.name,
-              bands,
-              min,
-              max,
-              nodata,
-            });
-            break;
-          }
-          case "url": {
-            const url = source.url;
-            addedId += url;
-            sources.push({
-              url,
-              revoke: false,
-              name: url.split("/").pop() || "",
-              bands,
-              min,
-              max,
-              nodata,
-            });
-            break;
-          }
-        }
+        const url = source.url;
+        const addedId = url;
+        sources.push({
+          url,
+          name: url.split("/").pop() || "",
+          bands,
+          min,
+          max,
+          nodata,
+        });
         if (addedId.length > 0) {
           id +=
             addedId +
@@ -496,8 +453,6 @@ const Viewer = (): React.ReactElement => {
   const sample1 = React.useCallback(() => {
     setValue("sources", [
       {
-        type: "url",
-        geotiff: "",
         url: "https://sentinel-cogs.s3.us-west-2.amazonaws.com/sentinel-s2-l2a-cogs/2020/S2A_36QWD_20200701_0_L2A/TCI.tif",
         bands: "1,2,3",
         nodata: "0",
@@ -511,8 +466,6 @@ const Viewer = (): React.ReactElement => {
   const sample2 = React.useCallback(() => {
     setValue("sources", [
       {
-        type: "url",
-        geotiff: "",
         url: "https://landsat-pds.s3.amazonaws.com/c1/L8/139/045/LC08_L1TP_139045_20170304_20170316_01_T1/LC08_L1TP_139045_20170304_20170316_01_T1_B4.TIF",
         bands: "1",
         nodata: "0",
@@ -520,8 +473,6 @@ const Viewer = (): React.ReactElement => {
         max: "15978",
       },
       {
-        type: "url",
-        geotiff: "",
         url: "https://landsat-pds.s3.amazonaws.com/c1/L8/139/045/LC08_L1TP_139045_20170304_20170316_01_T1/LC08_L1TP_139045_20170304_20170316_01_T1_B3.TIF",
         bands: "1",
         nodata: "0",
@@ -529,8 +480,6 @@ const Viewer = (): React.ReactElement => {
         max: "15239",
       },
       {
-        type: "url",
-        geotiff: "",
         url: "https://landsat-pds.s3.amazonaws.com/c1/L8/139/045/LC08_L1TP_139045_20170304_20170316_01_T1/LC08_L1TP_139045_20170304_20170316_01_T1_B2.TIF",
         bands: "1",
         nodata: "0",
@@ -568,8 +517,8 @@ const Viewer = (): React.ReactElement => {
     <>
       <CssBaseline />
       <Helmet>
-        <title>Display GeoTIFF</title>
-        <meta name="description" content="Display GeoTIFF on map." />
+        <title>Display Remote GeoTIFF</title>
+        <meta name="description" content="Display Remote GeoTIFF on map." />
         <link
           rel="canonical"
           href="https://yonda-yonda.github.io/exmap/geotiff"
@@ -584,8 +533,11 @@ const Viewer = (): React.ReactElement => {
           href="https://fonts.googleapis.com/css?family=Roboto:300,400,500,700&display=swap"
         />
         <meta name="twitter:card" content="summary_large_image" />
-        <meta name="twitter:title" content="Display GeoTIFF" />
-        <meta name="twitter:description" content="GeoTIFFを表示します" />
+        <meta name="twitter:title" content="Display Remote GeoTIFF" />
+        <meta
+          name="twitter:description"
+          content="リモートのGeoTIFFを表示します"
+        />
         <meta
           property="og:url"
           content="https://yonda-yonda.github.io/exmap/geotiff"
@@ -597,7 +549,7 @@ const Viewer = (): React.ReactElement => {
       </Helmet>
       <Container>
         <Typography variant="h2" component="h1">
-          Display GeoTIFF
+          Display Remote GeoTIFF
         </Typography>
         <Stack my={4} spacing={4}>
           <div>
@@ -707,100 +659,41 @@ const Viewer = (): React.ReactElement => {
                     <div key={field.id}>
                       <Controller
                         control={control}
-                        name={`sources.${index}.type`}
-                        render={({ field }) => (
-                          <FormControl fullWidth>
-                            <RadioGroup row {...field}>
-                              <FormControlLabel
-                                value="file"
-                                control={<Radio size="small" />}
-                                label="Local File"
-                              />
-                              <FormControlLabel
-                                value="url"
-                                control={<Radio size="small" />}
-                                label="URL"
-                              />
-                            </RadioGroup>
+                        name={`sources.${index}.url`}
+                        render={({ field, fieldState: { invalid, error } }) => (
+                          <FormControl
+                            component="fieldset"
+                            error={invalid}
+                            fullWidth
+                          >
+                            <TextField
+                              {...field}
+                              label="url"
+                              size="small"
+                              error={invalid}
+                              placeholder="https://"
+                              disabled={loading}
+                            />
+                            {error?.type === "required" && (
+                              <FormHelperText>
+                                Required. <br />
+                                必須です。入力してください。
+                              </FormHelperText>
+                            )}
+                            {error?.type === "pattern" && (
+                              <FormHelperText>
+                                Not matched URL pattern.
+                                <br />
+                                URLの形式が正しくありません。
+                              </FormHelperText>
+                            )}
                           </FormControl>
                         )}
+                        rules={{
+                          required: true,
+                          pattern: /^(https?):\/\/[^ "]+$/,
+                        }}
                       />
-                      {watcher[index].type === "file" && (
-                        <FormControl
-                          component="fieldset"
-                          error={!!errors?.sources?.[index]?.geotiff}
-                          fullWidth
-                        >
-                          <input
-                            {...register(`sources.${index}.geotiff`, {
-                              required: true,
-                              validate: {
-                                length: f =>
-                                  f instanceof FileList && f.length === 1,
-                              },
-                            })}
-                            type="file"
-                            disabled={loading}
-                          />
-
-                          {errors?.sources?.[index]?.geotiff?.type ===
-                            "required" && (
-                            <FormHelperText>
-                              Required. <br />
-                              ファイルを選択してください。
-                            </FormHelperText>
-                          )}
-                          {errors?.sources?.[index]?.geotiff?.type ===
-                            "length" && (
-                            <FormHelperText>
-                              Required. <br />
-                              ファイルを1つ選択してください。
-                            </FormHelperText>
-                          )}
-                        </FormControl>
-                      )}
-                      {watcher[index].type === "url" && (
-                        <Controller
-                          control={control}
-                          name={`sources.${index}.url`}
-                          render={({
-                            field,
-                            fieldState: { invalid, error },
-                          }) => (
-                            <FormControl
-                              component="fieldset"
-                              error={invalid}
-                              fullWidth
-                            >
-                              <TextField
-                                {...field}
-                                label="url"
-                                size="small"
-                                error={invalid}
-                                placeholder="https://"
-                                disabled={loading}
-                              />
-                              {error?.type === "required" && (
-                                <FormHelperText>
-                                  Required. <br />
-                                  必須です。入力してください。
-                                </FormHelperText>
-                              )}
-                              {error?.type === "pattern" && (
-                                <FormHelperText>
-                                  Not matched URL pattern.
-                                  <br />
-                                  URLの形式が正しくありません。
-                                </FormHelperText>
-                              )}
-                            </FormControl>
-                          )}
-                          rules={{
-                            required: true,
-                            pattern: /^(https?):\/\/[^ "]+$/,
-                          }}
-                        />
-                      )}
                       <Stack direction="row" spacing={2} sx={{ mt: 2, mb: 1 }}>
                         <Controller
                           control={control}
