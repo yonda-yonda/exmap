@@ -28,7 +28,7 @@ import proj4 from "proj4";
 import { useOl } from "~/hooks/useOl";
 import { useDnDSort } from "~/hooks/useDnDSort";
 
-import { ImageGrid } from "~/scripts/ImageGrid";
+import { Global } from "~/scripts/ImageGrid/Global";
 
 const Hint = styled("div")({
   fontSize: "12px",
@@ -85,7 +85,7 @@ type FormError =
   | "FailedLoadSource";
 
 type LayerConf = {
-  layer: TileLayer<ImageGrid>;
+  layer: TileLayer<Global>;
   name: string;
   id: string;
 };
@@ -209,12 +209,13 @@ const Viewer = (): React.ReactElement => {
           break;
         }
       }
-      let imageSource: ImageGrid | null = null;
+      let imageSource: Global | null = null;
       try {
-        imageSource = new ImageGrid({
+        imageSource = new Global({
           projection: code,
           url,
           imageExtent: extent,
+          rotate: Math.PI / 4,
           crossOrigin: "anonymous",
         });
       } catch {

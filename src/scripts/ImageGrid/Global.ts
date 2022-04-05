@@ -9,12 +9,14 @@ import {
     getWidth,
 } from "ol/extent";
 import {
+    ProjectionLike,
     get as getCachedProjection,
 } from "ol/proj";
 import ImageTile from "ol/ImageTile";
 import Tile from "ol/Tile";
+import { AttributionLike } from "ol/source/Source";
 import TileGrid from "ol/tilegrid/TileGrid";
-import TileImage, { Options as TileImageOptions } from "ol/source/TileImage";
+import TileImage from "ol/source/TileImage";
 import { PROJECTIONS as EPSG4326_PROJECTIONS } from "ol/proj/epsg4326";
 import { PROJECTIONS as EPSG3857_PROJECTIONS } from "ol/proj/epsg3857";
 
@@ -113,20 +115,33 @@ function crossing(extentLeft: number[], extentRight: number[]): boolean {
         Math.max(extentLeft[1], extentRight[1]) <= Math.min(extentLeft[3], extentRight[3])
 }
 
-export type ImageGridProps = {
+
+
+export type GlobalProps = {
     url: string;
     imageExtent: number[];
     rotate?: number;
     minZoom?: number;
     maxZoom?: number;
     tileSize?: number;
-} & TileImageOptions;
+    attributions?: AttributionLike;
+    attributionsCollapsible?: boolean;
+    cacheSize?: number;
+    crossOrigin?: string | null;
+    interpolate?: boolean;
+    opaque?: boolean;
+    projection?: ProjectionLike;
+    reprojectionErrorThreshold?: number;
+    tilePixelRatio?: number;
+    wrapX?: boolean;
+    transition?: number;
+};
 
-export class ImageGrid extends TileImage {
+export class Global extends TileImage {
     private imageExtent_: number[];
     private context_: CanvasRenderingContext2D | null;
 
-    constructor(userOptions: ImageGridProps) {
+    constructor(userOptions: GlobalProps) {
         const options = userOptions || {};
         const tileSize = options.tileSize ? options.tileSize : DEFAULT_TILE_SIZE;
 
@@ -204,11 +219,9 @@ export class ImageGrid extends TileImage {
                 ((imageTile as ImageTile).getImage() as HTMLImageElement).src = src;
             };
 
-        let interpolate =
-            options.imageSmoothing !== undefined ? options.imageSmoothing : true;
-        if (options.interpolate !== undefined) {
-            interpolate = options.interpolate;
-        }
+        const interpolate =
+            options.interpolate !== undefined ? options.interpolate : true;
+
         super({
             state: SourceState.LOADING,
             attributions: options.attributions,
@@ -231,16 +244,17 @@ export class ImageGrid extends TileImage {
         if (Array.isArray(options.imageExtent) && options.imageExtent.length > 3) {
             this.imageExtent_ = options.imageExtent;
         }
+        const originExtentAspectRatio = (this.imageExtent_[2] - this.imageExtent_[0]) / (this.imageExtent_[3] - this.imageExtent_[1]);
 
-        const extentWidth = gridExtent[2] - gridExtent[0];
-        const extentHeight = gridExtent[3] - gridExtent[1];
+        const gridExtentWidth = gridExtent[2] - gridExtent[0];
+        const gridExtentHeight = gridExtent[3] - gridExtent[1];
         if (
-            this.imageExtent_[0] < -gridExtent[0] - extentWidth / 2 || gridExtent[2] + extentWidth / 2 < this.imageExtent_[0] ||
+            this.imageExtent_[0] < gridExtent[0] - gridExtentWidth / 2 || gridExtent[2] + gridExtentWidth / 2 < this.imageExtent_[0] ||
             this.imageExtent_[1] < gridExtent[1] || gridExtent[3] < this.imageExtent_[1] ||
-            this.imageExtent_[2] < -gridExtent[0] - extentWidth / 2 || gridExtent[2] + extentWidth / 2 < this.imageExtent_[2] ||
+            this.imageExtent_[2] < gridExtent[0] - gridExtentWidth / 2 || gridExtent[2] + gridExtentWidth / 2 < this.imageExtent_[2] ||
             this.imageExtent_[3] < gridExtent[1] || gridExtent[3] < this.imageExtent_[3] ||
             this.imageExtent_[2] <= this.imageExtent_[0] ||
-            this.imageExtent_[0] - this.imageExtent_[2] > extentWidth
+            this.imageExtent_[0] - this.imageExtent_[2] > gridExtentWidth
         ) throw new Error("invalid extent.");
 
         let rad = 0;
@@ -255,18 +269,31 @@ export class ImageGrid extends TileImage {
             this.context_ = null;
             return;
         }
-        context.imageSmoothingEnabled = interpolate !== undefined ? interpolate : true;
+        context.imageSmoothingEnabled = interpolate;
         this.context_ = context;
 
         const image = new Image();
         image.crossOrigin = options.crossOrigin || "";
 
         image.addEventListener("load", () => {
+            let imageWidth = image.width;
+            let imageHeight = image.height;
+
+            if (imageWidth < imageHeight) {
+                imageHeight = imageWidth / originExtentAspectRatio;
+            } else {
+                imageWidth = imageHeight * originExtentAspectRatio;
+            }
+
+            const rotatedCoordinates = rotateExtent([0, 0, imageWidth, imageHeight], rad);
+            const rotatedWidth = rotatedCoordinates[2] - rotatedCoordinates[0];
+            const rotatedHeight = rotatedCoordinates[3] - rotatedCoordinates[1];
+
             const sourceResolution = Math.max(
-                (this.imageExtent_[2] - this.imageExtent_[0]) / image.width,
-                (this.imageExtent_[3] - this.imageExtent_[1]) / image.height
+                (this.imageExtent_[2] - this.imageExtent_[0]) / rotatedWidth,
+                (this.imageExtent_[3] - this.imageExtent_[1]) / rotatedHeight
             );
-            const maxResolution = Math.max(extentWidth, extentHeight) / tileSize;
+            const maxResolution = Math.max(gridExtentWidth, gridExtentHeight) / tileSize;
             const tileGrid = new TileGrid({
                 extent: gridExtent,
                 tileSize: tileSize,
@@ -278,20 +305,21 @@ export class ImageGrid extends TileImage {
                     sourceResolution,
                 }),
             });
-            if (tileGrid)
+            if (tileGrid) {
                 this.tileGrid = tileGrid;
-            const rotatedCoordinates = rotateExtent([0, 0, image.width, image.height], rad);
-            const rotatedWidth = rotatedCoordinates[2] - rotatedCoordinates[0];
-            const rotatedHeight = rotatedCoordinates[3] - rotatedCoordinates[1];
-            canvas.width = rotatedWidth;
-            canvas.height = rotatedHeight;
+                canvas.width = rotatedWidth;
+                canvas.height = rotatedHeight;
 
-            context.save();
-            context.translate(rotatedWidth / 2, rotatedHeight / 2);
-            context.rotate(-rad);
-            context.drawImage(image, -(image.width / 2), -(image.height / 2));
-            context.restore();
-            this.setState(SourceState.READY);
+                context.save();
+                context.translate(rotatedWidth / 2, rotatedHeight / 2);
+                context.rotate(-rad);
+                context.drawImage(image, 0, 0, image.width, image.height, -imageWidth / 2, -imageHeight / 2, imageWidth, imageHeight);
+                context.restore();
+
+                this.setState(SourceState.READY);
+            } else {
+                this.setState(SourceState.ERROR);
+            }
         });
         image.addEventListener("error", () => {
             this.setState(SourceState.ERROR);
