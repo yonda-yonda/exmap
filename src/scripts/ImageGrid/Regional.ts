@@ -17,29 +17,6 @@ import Tile from "ol/Tile";
 import { AttributionLike } from "ol/source/Source";
 import TileGrid from "ol/tilegrid/TileGrid";
 import TileImage from "ol/source/TileImage";
-import { PROJECTIONS as EPSG4326_PROJECTIONS } from "ol/proj/epsg4326";
-import { PROJECTIONS as EPSG3857_PROJECTIONS } from "ol/proj/epsg3857";
-
-const HALF_WORLD_3857 = Math.PI * 6378137;
-const EXTENT = {
-    3857: [-HALF_WORLD_3857, -HALF_WORLD_3857, HALF_WORLD_3857, HALF_WORLD_3857],
-    4326: [-180, -90, 180, 90],
-};
-
-function is4326(code?: string) {
-    return !!(EPSG4326_PROJECTIONS.find((projection) => {
-        return projection.getCode() === code
-    }))
-}
-function is3857(code?: string) {
-    return !!(EPSG3857_PROJECTIONS.find((projection) => {
-        return projection.getCode() === code
-    }))
-}
-
-export const isSupportedCode = (code: string) => {
-    return is4326(code) || is3857(code);
-}
 
 function rotateExtent(extent: number[], rad: number): number[] {
     const center = [(extent[2] - extent[0]) / 2 + extent[0], (extent[3] - extent[1]) / 2 + extent[1]];
@@ -113,14 +90,7 @@ function getWindow(gridExtent: number[], z: number, x: number, y: number,): numb
     return [left, top, right, bottom]
 }
 
-function crossing(extentLeft: number[], extentRight: number[]): boolean {
-    return Math.max(extentLeft[0], extentRight[0]) <= Math.min(extentLeft[2], extentRight[2]) &&
-        Math.max(extentLeft[1], extentRight[1]) <= Math.min(extentLeft[3], extentRight[3])
-}
-
-
-
-export type GlobalProps = {
+export type RegionalProps = {
     url: string;
     imageExtent: number[];
     projection: ProjectionLike;
@@ -140,18 +110,29 @@ export type GlobalProps = {
     transition?: number;
 };
 
-export class Global extends TileImage {
+export class Regional extends TileImage {
     private imageExtent_: number[];
     private context_: CanvasRenderingContext2D | null;
 
-    constructor(userOptions: GlobalProps) {
+    constructor(userOptions: RegionalProps) {
         const options = userOptions || {};
         const tileSize = options.tileSize ? options.tileSize : DEFAULT_TILE_SIZE;
 
         const projection = getCachedProjection(options.projection);
-        const code = projection?.getCode();
-        const gridExtent = is4326(code) ? EXTENT[4326] : is3857(code) ? EXTENT[3857] : null;
-        if (!projection || !gridExtent) throw new Error("Unsupported projection");
+        if (!projection) throw new Error("projection is necessary.");
+
+        let imageExtent = [Infinity, Infinity, -Infinity, -Infinity];
+        if (Array.isArray(options.imageExtent) && options.imageExtent.length > 3) {
+            imageExtent = options.imageExtent;
+        }
+        if (
+            imageExtent[2] <= imageExtent[0] || imageExtent[3] <= imageExtent[1]
+        ) throw new Error("invalid extent.");
+        let rad = 0;
+        if (options.rotate) {
+            rad = options.rotate;
+            imageExtent = rotateExtent(imageExtent, rad)
+        }
 
         const tileLoadFunction =
             (imageTile: Tile, coordString: string) => {
@@ -167,31 +148,15 @@ export class Global extends TileImage {
                 canvas.width = tileSize;
                 canvas.height = tileSize;
 
-                const window = getWindow(gridExtent, z, x, y);
-                let tileLeft = window[0];
-                let tileRight = window[2];
+                const window = getWindow(imageExtent, z, x, y);
+                const tileLeft = window[0];
+                const tileRight = window[2];
                 const tileTop = window[1];
                 const tileBottom = window[3];
                 const [
                     imageExtentLeft, imageExtentBottom, imageExtentRight, imageExtentTop
                 ] = this.imageExtent_;
 
-                const extentWidth = gridExtent[2] - gridExtent[0];
-                if (imageExtentLeft < gridExtent[0] && 0 < tileRight) {
-                    tileLeft -= extentWidth;
-                    tileRight -= extentWidth;
-                } else if (gridExtent[2] < imageExtentRight && tileLeft < 0) {
-                    tileLeft += extentWidth;
-                    tileRight += extentWidth;
-                }
-
-                if (!crossing([
-                    imageExtentLeft, imageExtentBottom, imageExtentRight, imageExtentTop
-                ], [
-                    tileLeft, tileBottom, tileRight, tileTop
-                ])) {
-                    imageTile.setState(TileState.EMPTY);
-                }
 
                 const sourcePerPixel = [(imageExtentRight - imageExtentLeft) / this.context_.canvas.width, (imageExtentTop - imageExtentBottom) / this.context_.canvas.height];
                 const tilePerPixel = [(tileRight - tileLeft) / tileSize, (tileTop - tileBottom) / tileSize];
@@ -242,29 +207,12 @@ export class Global extends TileImage {
             attributionsCollapsible: options.attributionsCollapsible,
         });
 
+        this.imageExtent_ = imageExtent;
 
-        this.imageExtent_ = [Infinity, Infinity, -Infinity, -Infinity];
-        if (Array.isArray(options.imageExtent) && options.imageExtent.length > 3) {
-            this.imageExtent_ = options.imageExtent;
-        }
-        const originExtentAspectRatio = (this.imageExtent_[2] - this.imageExtent_[0]) / (this.imageExtent_[3] - this.imageExtent_[1]);
+        const extentWidth = imageExtent[2] - imageExtent[0];
+        const extentHeight = imageExtent[3] - imageExtent[1];
+        const originExtentAspectRatio = extentWidth / extentHeight;
 
-        const gridExtentWidth = gridExtent[2] - gridExtent[0];
-        const gridExtentHeight = gridExtent[3] - gridExtent[1];
-        if (
-            this.imageExtent_[0] < gridExtent[0] - gridExtentWidth / 2 || gridExtent[2] + gridExtentWidth / 2 < this.imageExtent_[0] ||
-            this.imageExtent_[1] < gridExtent[1] || gridExtent[3] < this.imageExtent_[1] ||
-            this.imageExtent_[2] < gridExtent[0] - gridExtentWidth / 2 || gridExtent[2] + gridExtentWidth / 2 < this.imageExtent_[2] ||
-            this.imageExtent_[3] < gridExtent[1] || gridExtent[3] < this.imageExtent_[3] ||
-            this.imageExtent_[2] <= this.imageExtent_[0] ||
-            this.imageExtent_[0] - this.imageExtent_[2] > gridExtentWidth
-        ) throw new Error("invalid extent.");
-
-        let rad = 0;
-        if (options.rotate) {
-            rad = options.rotate;
-            this.imageExtent_ = rotateExtent(this.imageExtent_, rad)
-        }
 
         const canvas = document.createElement("canvas");
         const context = canvas.getContext("2d");
@@ -296,12 +244,12 @@ export class Global extends TileImage {
                 (this.imageExtent_[2] - this.imageExtent_[0]) / rotatedWidth,
                 (this.imageExtent_[3] - this.imageExtent_[1]) / rotatedHeight
             );
-            const maxResolution = Math.max(gridExtentWidth, gridExtentHeight) / tileSize;
+            const maxResolution = Math.max(extentWidth, extentHeight) / tileSize;
             const tileGrid = new TileGrid({
-                extent: gridExtent,
+                extent: this.imageExtent_,
                 tileSize: tileSize,
                 minZoom: options.minZoom,
-                resolutions: resolutionsFromExtent(gridExtent, {
+                resolutions: resolutionsFromExtent(this.imageExtent_, {
                     maxZoom: options.maxZoom,
                     tileSize: tileSize,
                     maxResolution,

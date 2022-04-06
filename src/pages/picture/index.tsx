@@ -22,13 +22,16 @@ import { styled } from "@mui/system";
 import { Map } from "ol";
 import SourceState from "ol/source/State";
 import TileLayer from "ol/layer/Tile";
-import { transformExtent } from "ol/proj";
+import { get as getProjection, transformExtent } from "ol/proj";
 import MousePosition from "ol/control/MousePosition";
 import proj4 from "proj4";
 import { useOl } from "~/hooks/useOl";
 import { useDnDSort } from "~/hooks/useDnDSort";
+import { register as olRegister } from "ol/proj/proj4";
+import { utils } from "geo4326";
 
-import { Global } from "~/scripts/ImageGrid/Global";
+import { Global, isSupportedCode } from "~/scripts/ImageGrid/Global";
+import { Regional } from "~/scripts/ImageGrid/Regional";
 
 const Hint = styled("div")({
   fontSize: "12px",
@@ -70,6 +73,7 @@ type Input = {
   url: string;
   files: FileList | string;
   extent: string;
+  rotate: string;
 };
 
 type SubmitProps = {
@@ -82,10 +86,11 @@ type FormError =
   | "InvalidExtent"
   | "ReversedExtent"
   | "UnsupportedExtent"
-  | "FailedLoadSource";
+  | "FailedLoadSource"
+  | "UnsupportedCrs";
 
 type LayerConf = {
-  layer: TileLayer<Global>;
+  layer: TileLayer<Regional | Global>;
   name: string;
   id: string;
 };
@@ -96,6 +101,7 @@ const defaultSourceValue = {
   files: "",
   url: "",
   extent: "",
+  rotate: "0",
 };
 
 const Coordinates = styled("div")({
@@ -192,6 +198,18 @@ const Viewer = (): React.ReactElement => {
       let revoke = false;
       let name = "";
       const code = source.code;
+      const rotate = source.rotate.length > 0 ? parseFloat(source.rotate) : 0;
+      if (!getProjection(code)) {
+        try {
+          const crs = utils.getCrs(code);
+          proj4.defs(code, crs);
+        } catch {
+          setError("UnsupportedCrs");
+          return;
+        }
+        olRegister(proj4);
+      }
+
       const extent = source.extent.split(",").map(v => Number(v));
       switch (source.type) {
         case "file": {
@@ -209,15 +227,27 @@ const Viewer = (): React.ReactElement => {
           break;
         }
       }
-      let imageSource: Global | null = null;
+      let imageSource: Regional | Global | null = null;
       try {
-        imageSource = new Global({
-          projection: code,
-          url,
-          imageExtent: extent,
-          rotate: Math.PI / 4,
-          crossOrigin: "anonymous",
-        });
+        if (isSupportedCode(code)) {
+          imageSource = new Global({
+            projection: code,
+            url,
+            imageExtent: extent,
+            rotate: (rotate / 180) * Math.PI,
+            crossOrigin: "anonymous",
+            wrapX: true,
+          });
+        } else {
+          imageSource = new Regional({
+            projection: code,
+            url,
+            imageExtent: extent,
+            rotate: (rotate / 180) * Math.PI,
+            crossOrigin: "anonymous",
+            wrapX: true,
+          });
+        }
       } catch {
         setError("UnsupportedExtent");
         if (revoke) URL.revokeObjectURL(url);
@@ -332,6 +362,9 @@ const Viewer = (): React.ReactElement => {
         }
       }
       id += extent.join(",");
+
+      const rotate = data.rotate.length > 0 ? data.rotate : 0;
+      id += "," + rotate;
       if (id.length > 0) {
         const index = layerConfs.findIndex(layerConf => {
           return id === layerConf.id;
@@ -657,6 +690,35 @@ const Viewer = (): React.ReactElement => {
                     }}
                   />
                 </Stack>
+                <Stack direction="row" spacing={4} sx={{ mb: 1 }}>
+                  <Controller
+                    control={control}
+                    name="rotate"
+                    render={({ field, fieldState: { invalid, error } }) => (
+                      <FormControl
+                        component="fieldset"
+                        error={invalid}
+                        fullWidth
+                      >
+                        <TextField
+                          {...field}
+                          label="Rotate(degree)"
+                          size="small"
+                          error={invalid}
+                        />
+                        {error?.type === "pattern" && (
+                          <FormHelperText>
+                            must be a number. <br />
+                            数値を入力してください。
+                          </FormHelperText>
+                        )}
+                      </FormControl>
+                    )}
+                    rules={{
+                      pattern: /^((\+|-){0,1}[1-9]\d*|0)(\.\d+)?$/,
+                    }}
+                  />
+                </Stack>
               </Stack>
               <FormControl error={!!error} sx={{ mt: 3 }}>
                 <div>
@@ -699,6 +761,12 @@ const Viewer = (): React.ReactElement => {
                   <FormHelperText sx={{ ml: 0 }}>
                     Failed to load source. <br />
                     ファイルの読み込みに失敗しました。
+                  </FormHelperText>
+                )}
+                {error === "UnsupportedCrs" && (
+                  <FormHelperText sx={{ ml: 0 }}>
+                    Unsupported CRS. <br />
+                    サポート外の投影系です。
                   </FormHelperText>
                 )}
               </FormControl>
