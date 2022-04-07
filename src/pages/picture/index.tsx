@@ -33,6 +33,20 @@ import { utils } from "geo4326";
 import { Global, isSupportedCode } from "~/scripts/ImageGrid/Global";
 import { Regional } from "~/scripts/ImageGrid/Regional";
 
+const CodeStatus = styled("div")({
+  display: "flex",
+  marginTop: "10px",
+  alignItems: "center",
+  "& > *": {
+    flex: "0 0 auto",
+    marginRight: "5px",
+    "&:last-child": {
+      marginLeft: "10px",
+      fontSize: "12px",
+    },
+  },
+});
+
 const Hint = styled("div")({
   fontSize: "12px",
 });
@@ -120,6 +134,41 @@ const Viewer = (): React.ReactElement => {
   const [layerConfs, setLayerConfs] = React.useState<LayerConf[]>([]);
   const [error, setError] = React.useState<FormError | null>(null);
   const [loading, setLoading] = React.useState<boolean>();
+  const [projection, setProjection] = React.useState<{
+    code: string;
+    error: boolean;
+  }>({
+    code: "EPSG:3857",
+    error: false,
+  });
+  const codeRef = React.useRef<HTMLInputElement | null>(null);
+
+  const changeMapProjection = React.useCallback(
+    (code: string) => {
+      if (!getProjection(code)) {
+        try {
+          const crs = utils.getCrs(code);
+          proj4.defs(code, crs);
+        } catch {
+          setProjection(prev => {
+            prev.error = true;
+            return {
+              code: prev.code,
+              error: true,
+            };
+          });
+          return;
+        }
+        olRegister(proj4);
+      }
+      ol.changeProjection(code);
+      setProjection({
+        code,
+        error: false,
+      });
+    },
+    [ol]
+  );
 
   const layerList = useDnDSort<LayerConf>({
     defaultItems: [],
@@ -469,6 +518,28 @@ const Viewer = (): React.ReactElement => {
                       height: "340px",
                     }}
                   />
+                  <CodeStatus>
+                    <TextField
+                      inputRef={codeRef}
+                      label="MapCode"
+                      size="small"
+                    />
+                    <Button
+                      variant="contained"
+                      type="button"
+                      onClick={() => {
+                        changeMapProjection(codeRef.current?.value || "");
+                      }}
+                    >
+                      Change
+                    </Button>
+                    <div>
+                      <div>view at {projection.code}</div>
+                    </div>
+                  </CodeStatus>
+                  {projection.error && (
+                    <FormHelperText>Unsupported Code.</FormHelperText>
+                  )}
                   <Coordinates ref={positionRef}></Coordinates>
                 </div>
               </Grid>
@@ -525,6 +596,7 @@ const Viewer = (): React.ReactElement => {
               </Grid>
             </Grid>
           </div>
+          <hr />
           <div>
             <form onSubmit={handleSubmit(onSubmit)}>
               <Stack spacing={2}>
@@ -636,7 +708,7 @@ const Viewer = (): React.ReactElement => {
                       >
                         <TextField
                           {...field}
-                          label="Code"
+                          label="SourceCode"
                           size="small"
                           error={invalid}
                         />
