@@ -34,16 +34,18 @@ import { Global, isSupportedCode } from "~/scripts/ImageGrid/Global";
 import { Regional } from "~/scripts/ImageGrid/Regional";
 
 const CodeStatus = styled("div")({
+  fontSize: "12px",
+  marginTop: "10px",
+  marginLeft: "2px",
+});
+
+const CodeInput = styled("div")({
   display: "flex",
   marginTop: "10px",
   alignItems: "center",
   "& > *": {
     flex: "0 0 auto",
     marginRight: "5px",
-    "&:last-child": {
-      marginLeft: "10px",
-      fontSize: "12px",
-    },
   },
 });
 
@@ -243,9 +245,6 @@ const Viewer = (): React.ReactElement => {
   const setLayer = React.useCallback(
     async (map: Map, id: string, source: Input) => {
       setLoading(true);
-      let url = "";
-      let revoke = false;
-      let name = "";
       const code = source.code;
       const rotate = source.rotate.length > 0 ? parseFloat(source.rotate) : 0;
       if (!getProjection(code)) {
@@ -260,14 +259,15 @@ const Viewer = (): React.ReactElement => {
       }
 
       const extent = source.extent.split(",").map(v => Number(v));
+      let name = "";
+      let file: File | undefined;
+      let url: string | undefined;
       switch (source.type) {
         case "file": {
           if (!(source.files instanceof FileList)) break;
 
-          const file = source.files[0];
+          file = source.files[0];
           name = file.name;
-          url = URL.createObjectURL(file);
-          revoke = true;
           break;
         }
         case "url": {
@@ -281,6 +281,7 @@ const Viewer = (): React.ReactElement => {
         if (isSupportedCode(code)) {
           imageSource = new Global({
             projection: code,
+            file,
             url,
             imageExtent: extent,
             rotate: (rotate / 180) * Math.PI,
@@ -290,6 +291,7 @@ const Viewer = (): React.ReactElement => {
         } else {
           imageSource = new Regional({
             projection: code,
+            file,
             url,
             imageExtent: extent,
             rotate: (rotate / 180) * Math.PI,
@@ -299,7 +301,6 @@ const Viewer = (): React.ReactElement => {
         }
       } catch {
         setError("UnsupportedExtent");
-        if (revoke) URL.revokeObjectURL(url);
         setLoading(false);
       }
       if (imageSource) {
@@ -342,7 +343,6 @@ const Viewer = (): React.ReactElement => {
 
         if (sourceState === SourceState.READY) {
           setting();
-          if (revoke) URL.revokeObjectURL(url);
           setLoading(false);
         } else {
           const sourceListener = () => {
@@ -350,13 +350,11 @@ const Viewer = (): React.ReactElement => {
             if (sourceState === SourceState.ERROR) {
               source.removeEventListener("change", sourceListener);
               setError("FailedLoadSource");
-              if (revoke) URL.revokeObjectURL(url);
               setLoading(false);
             }
             if (sourceState === SourceState.READY) {
               source.removeEventListener("change", sourceListener);
               setting();
-              if (revoke) URL.revokeObjectURL(url);
               setLoading(false);
             }
           };
@@ -518,12 +516,16 @@ const Viewer = (): React.ReactElement => {
                       height: "340px",
                     }}
                   />
-                  <CodeStatus>
-                    <TextField
-                      inputRef={codeRef}
-                      label="MapCode"
-                      size="small"
-                    />
+
+                  <CodeStatus>view at {projection.code}</CodeStatus>
+                  <CodeInput>
+                    <div>
+                      <TextField
+                        inputRef={codeRef}
+                        label="MapCode"
+                        size="small"
+                      />
+                    </div>
                     <Button
                       variant="contained"
                       type="button"
@@ -533,10 +535,7 @@ const Viewer = (): React.ReactElement => {
                     >
                       Change
                     </Button>
-                    <div>
-                      <div>view at {projection.code}</div>
-                    </div>
-                  </CodeStatus>
+                  </CodeInput>
                   {projection.error && (
                     <FormHelperText>Unsupported Code.</FormHelperText>
                   )}

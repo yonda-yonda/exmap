@@ -121,7 +121,8 @@ function crossing(extentLeft: number[], extentRight: number[]): boolean {
 
 
 export type GlobalProps = {
-    url: string;
+    url?: string;
+    file?: File;
     imageExtent: number[];
     projection: ProjectionLike;
     rotate?: number;
@@ -146,6 +147,8 @@ export class Global extends TileImage {
 
     constructor(userOptions: GlobalProps) {
         const options = userOptions || {};
+        if (!options.url && !options.file) throw new Error("source url or file is necessary.");
+
         const tileSize = options.tileSize ? options.tileSize : DEFAULT_TILE_SIZE;
 
         const projection = getCachedProjection(options.projection);
@@ -278,7 +281,13 @@ export class Global extends TileImage {
         const image = new Image();
         image.crossOrigin = options.crossOrigin || "";
 
+        let url = "";
+        if (options.file)
+            url = URL.createObjectURL(options.file)
+        else if (options.url)
+            url = options.url;
         image.addEventListener("load", () => {
+            if (options.file) URL.revokeObjectURL(url);
             let imageWidth = image.width;
             let imageHeight = image.height;
 
@@ -325,9 +334,10 @@ export class Global extends TileImage {
             }
         });
         image.addEventListener("error", () => {
+            if (options.file) URL.revokeObjectURL(url);
             this.setState(SourceState.ERROR);
         });
 
-        image.src = options.url;
+        image.src = url;
     }
 }
