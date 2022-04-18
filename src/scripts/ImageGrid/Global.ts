@@ -118,8 +118,6 @@ function crossing(extentLeft: number[], extentRight: number[]): boolean {
         Math.max(extentLeft[1], extentRight[1]) <= Math.min(extentLeft[3], extentRight[3])
 }
 
-
-
 export type GlobalProps = {
     url?: string;
     file?: File;
@@ -129,6 +127,7 @@ export type GlobalProps = {
     minZoom?: number;
     maxZoom?: number;
     tileSize?: number;
+    maxPixel?: number;
     attributions?: AttributionLike;
     attributionsCollapsible?: boolean;
     cacheSize?: number;
@@ -298,8 +297,34 @@ export class Global extends TileImage {
             }
 
             const rotatedCoordinates = rotateExtent([0, 0, imageWidth, imageHeight], rad);
-            const rotatedWidth = rotatedCoordinates[2] - rotatedCoordinates[0];
-            const rotatedHeight = rotatedCoordinates[3] - rotatedCoordinates[1];
+            let rotatedWidth = rotatedCoordinates[2] - rotatedCoordinates[0];
+            let rotatedHeight = rotatedCoordinates[3] - rotatedCoordinates[1];
+
+            if (options.maxPixel && options.maxPixel > 0 && options.maxPixel < rotatedWidth * rotatedHeight) {
+                const m = options.maxPixel;
+                const scale = Math.sqrt(m / (rotatedWidth * rotatedHeight));
+                rotatedWidth *= scale;
+                rotatedHeight *= scale;
+                imageWidth *= scale;
+                imageHeight *= scale;
+            }
+            if (rotatedWidth < rotatedHeight) {
+                if (rotatedWidth < tileSize) {
+                    const r = tileSize / rotatedWidth;
+                    rotatedWidth = tileSize;
+                    rotatedHeight *= r;
+                    imageWidth *= r;
+                    imageHeight *= r;
+                }
+            } else {
+                if (imageHeight < tileSize) {
+                    const r = tileSize / rotatedHeight;
+                    rotatedHeight = tileSize;
+                    rotatedWidth *= r;
+                    imageWidth *= r;
+                    imageHeight *= r;
+                }
+            }
 
             const sourceResolution = Math.max(
                 (this.imageExtent_[2] - this.imageExtent_[0]) / rotatedWidth,

@@ -99,6 +99,7 @@ export type RegionalProps = {
     minZoom?: number;
     maxZoom?: number;
     tileSize?: number;
+    maxPixel?: number;
     attributions?: AttributionLike;
     attributionsCollapsible?: boolean;
     cacheSize?: number;
@@ -216,7 +217,6 @@ export class Regional extends TileImage {
         const extentHeight = imageExtent[3] - imageExtent[1];
         const originExtentAspectRatio = extentWidth / extentHeight;
 
-
         const canvas = document.createElement("canvas");
         const context = canvas.getContext("2d");
         if (!context) {
@@ -246,12 +246,37 @@ export class Regional extends TileImage {
             }
 
             const rotatedCoordinates = rotateExtent([0, 0, imageWidth, imageHeight], rad);
-            const rotatedWidth = rotatedCoordinates[2] - rotatedCoordinates[0];
-            const rotatedHeight = rotatedCoordinates[3] - rotatedCoordinates[1];
+            let rotatedWidth = rotatedCoordinates[2] - rotatedCoordinates[0];
+            let rotatedHeight = rotatedCoordinates[3] - rotatedCoordinates[1];
 
+            if (options.maxPixel && options.maxPixel > 0 && options.maxPixel < rotatedWidth * rotatedHeight) {
+                const m = options.maxPixel;
+                const scale = Math.sqrt(m / (rotatedWidth * rotatedHeight));
+                rotatedWidth *= scale;
+                rotatedHeight *= scale;
+                imageWidth *= scale;
+                imageHeight *= scale;
+            }
+            if (rotatedWidth < rotatedHeight) {
+                if (rotatedWidth < tileSize) {
+                    const r = tileSize / rotatedWidth;
+                    rotatedWidth = tileSize;
+                    rotatedHeight *= r;
+                    imageWidth *= r;
+                    imageHeight *= r;
+                }
+            } else {
+                if (imageHeight < tileSize) {
+                    const r = tileSize / rotatedHeight;
+                    rotatedHeight = tileSize;
+                    rotatedWidth *= r;
+                    imageWidth *= r;
+                    imageHeight *= r;
+                }
+            }
             const sourceResolution = Math.max(
-                (this.imageExtent_[2] - this.imageExtent_[0]) / rotatedWidth,
-                (this.imageExtent_[3] - this.imageExtent_[1]) / rotatedHeight
+                (this.imageExtent_[2] - this.imageExtent_[0]) / imageWidth,
+                (this.imageExtent_[3] - this.imageExtent_[1]) / imageHeight
             );
             const maxResolution = Math.max(extentWidth, extentHeight) / tileSize;
             const tileGrid = new TileGrid({
