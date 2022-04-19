@@ -94,7 +94,8 @@ const Transform = (): React.ReactElement => {
 
   React.useEffect(() => {
     if (result.map) {
-      if (!distLayer.current) {
+      const projection = getProjection("EPSG:4326");
+      if (!distLayer.current && projection) {
         distLayer.current = new VectorLayer({
           source: new VectorSource({}),
         });
@@ -102,7 +103,7 @@ const Transform = (): React.ReactElement => {
         result.map.addLayer(distLayer.current);
         result.map.setView(
           new View({
-            projection: getProjection("EPSG:4326"),
+            projection,
             center: [0, 0],
             zoom: 1,
           })
@@ -136,13 +137,14 @@ const Transform = (): React.ReactElement => {
           }
 
           const projection = getProjection(code);
-          preview.map.setView(
-            new View({
-              projection,
-              center: [0, 0],
-              zoom: 1,
-            })
-          );
+          if (projection)
+            preview.map.setView(
+              new View({
+                projection,
+                center: [0, 0],
+                zoom: 1,
+              })
+            );
         }
       } catch {
         return;
@@ -160,7 +162,7 @@ const Transform = (): React.ReactElement => {
           coordinates: [coordinates],
         });
         source.addFeature(feature);
-        const polygon = feature.getGeometry();
+        const polygon = feature.getGeometry()?.getExtent();
         polygon &&
           preview.map.getView().fit(polygon, {
             padding: [40, 20, 40, 20],
