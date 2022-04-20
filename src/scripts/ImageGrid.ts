@@ -124,6 +124,8 @@ export type ImageGridProps = {
     maxZoom?: number;
     tileSize?: number;
     maxPixel?: number;
+    maxWidth?: number;
+    maxHeight?: number;
     attributions?: AttributionLike;
     attributionsCollapsible?: boolean;
     cacheSize?: number;
@@ -144,7 +146,11 @@ export class ImageGrid extends TileImage {
         const options = userOptions || {};
         if (!options.url && !options.file) throw new Error("source url or file is necessary.");
 
-        const tileSize = options.tileSize ? options.tileSize : DEFAULT_TILE_SIZE;
+        const tileSize = typeof options.tileSize !== "undefined" ? options.tileSize : DEFAULT_TILE_SIZE;
+        //https://developer.mozilla.org/en-US/docs/Web/HTML/Element/canvas
+        const maxPixel = typeof options.maxPixel !== "undefined" ? options.maxPixel : 268435456;
+        const maxHeight = typeof options.maxHeight !== "undefined" ? options.maxHeight : 32767;
+        const maxWidth = typeof options.maxWidth !== "undefined" ? options.maxWidth : 32767;
 
         const projection = getCachedProjection(options.projection);
         if (!projection) throw new Error("Unsupported projection");
@@ -293,6 +299,7 @@ export class ImageGrid extends TileImage {
             url = options.url;
         image.addEventListener("load", () => {
             if (options.file) URL.revokeObjectURL(url);
+
             let imageWidth = image.width;
             let imageHeight = image.height;
 
@@ -305,15 +312,6 @@ export class ImageGrid extends TileImage {
             const rotatedCoordinates = rotateExtent([0, 0, imageWidth, imageHeight], rad);
             let rotatedWidth = rotatedCoordinates[2] - rotatedCoordinates[0];
             let rotatedHeight = rotatedCoordinates[3] - rotatedCoordinates[1];
-
-            if (options.maxPixel && options.maxPixel > 0 && options.maxPixel < rotatedWidth * rotatedHeight) {
-                const m = options.maxPixel;
-                const scale = Math.sqrt(m / (rotatedWidth * rotatedHeight));
-                rotatedWidth *= scale;
-                rotatedHeight *= scale;
-                imageWidth *= scale;
-                imageHeight *= scale;
-            }
             if (rotatedWidth < rotatedHeight) {
                 if (rotatedWidth < tileSize) {
                     const r = tileSize / rotatedWidth;
@@ -330,6 +328,30 @@ export class ImageGrid extends TileImage {
                     imageWidth *= r;
                     imageHeight *= r;
                 }
+            }
+
+            if (maxWidth > 0 && maxWidth < rotatedWidth) {
+                const scale = maxWidth / rotatedWidth;
+                rotatedWidth *= scale;
+                rotatedHeight *= scale;
+                imageWidth *= scale;
+                imageHeight *= scale;
+            }
+
+            if (maxHeight > 0 && maxHeight < rotatedHeight) {
+                const scale = maxHeight / rotatedHeight;
+                rotatedWidth *= scale;
+                rotatedHeight *= scale;
+                imageWidth *= scale;
+                imageHeight *= scale;
+            }
+
+            if (maxPixel > 0 && maxPixel < rotatedWidth * rotatedHeight) {
+                const scale = Math.sqrt(maxPixel / (rotatedWidth * rotatedHeight));
+                rotatedWidth *= scale;
+                rotatedHeight *= scale;
+                imageWidth *= scale;
+                imageHeight *= scale;
             }
 
             const sourceResolution = Math.max(
