@@ -93,11 +93,13 @@ export interface RasterValue {
     nodata: number,
 }
 
+export type RendererMode = "rgb" | "single" | "ndi";
+
 export interface RenderProps {
-    mode: "rgb" | "single" | "ndi";
+    mode: RendererMode;
     samples: Sample[];
-    width: number;
-    height: number;
+    width?: number;
+    height?: number;
     layers?: Layer[];
     alpha?: boolean;
     cmap?: string;
@@ -108,6 +110,53 @@ const clamp = (value: number, min: number, max: number): number => {
     const bias = -min * gain;
     return Math.min(Math.max(gain * value + bias, 0), 255);
 }
+
+export const colormaps = [
+    "jet",
+    "hsv",
+    "hot",
+    "spring",
+    "summer",
+    "autumn",
+    "winter",
+    "bone",
+    "copper",
+    "greys",
+    "yignbu",
+    "greens",
+    "yiorrd",
+    "bluered",
+    "rdbu",
+    "picnic",
+    "rainbow",
+    "portland",
+    "blackbody",
+    "earth",
+    "electric",
+    "alpha",
+    "viridis",
+    "inferno",
+    "magma",
+    "plasma",
+    "warm",
+    "cool",
+    "rainbow-soft",
+    "bathymetry",
+    "cdom",
+    "chlorophyll",
+    "density",
+    "freesurface-blue",
+    "freesurface-red",
+    "oxygen",
+    "par",
+    "phase",
+    "salinity",
+    "temperature",
+    "turbidity",
+    "velocity-blue",
+    "velocity-green",
+    "cubehelix"
+];
 
 export class Reader {
     private files: File[];
@@ -211,8 +260,8 @@ export class Reader {
             const sourceWindow = Array.isArray(source.window) ? [...source.window] : [0, 0, originWidth, originHeight];
             if (sourceWindow.length !== 4) throw new Error("window must be 4 length.");
 
-            const dstWidth = source.width ?? sourceWindow[2] - sourceWindow[0];
-            const dstHeight = source.height ?? (sourceWindow[3] - sourceWindow[1]);
+            const dstWidth = Math.floor(source.width ?? (sourceWindow[2] - sourceWindow[0]));
+            const dstHeight = Math.floor(source.height ?? (sourceWindow[3] - sourceWindow[1]));
             if (dstWidth < 1 || dstHeight < 1) throw new Error("dist size is too small.");
             const nodata = source.nodata || targetImage.getGDALNoData() || 0;
             const imageCount = await tiff.getImageCount();
@@ -266,7 +315,6 @@ export class Reader {
         props: RenderProps
     ): Promise<ImageData> {
         const { samples, mode = "rgb", layers = [], alpha = true, cmap = "jet", width, height } = props;
-
         let orders: number[] = [];
         let colors: number[][] = [];
         const mapping: [number, number][] = [];
@@ -288,6 +336,7 @@ export class Reader {
                     return layer.index
                 })] : [0, 1];
                 if (orders?.length !== 2) throw new Error("layers length must be 2 at single mode.");
+                if (!colormaps.includes(cmap)) throw new Error("Unsupproted cmap.");
                 colors = colormap({
                     colormap: cmap,
                     nshades: 256,
@@ -301,6 +350,7 @@ export class Reader {
                     return layer.index
                 })] : [0];
                 if (orders?.length !== 1) throw new Error("layers length must be 1 at single mode.");
+                if (!colormaps.includes(cmap)) throw new Error("Unsupproted cmap.");
                 colors = colormap({
                     colormap: cmap,
                     nshades: 256,
@@ -325,7 +375,8 @@ export class Reader {
                 }
             })
         });
-        const length = width * height;
+        const [dstWidth, dstHeight] = [Math.floor(width || rasters[0].width), Math.floor(height || rasters[0].height)];
+        const length = dstWidth * dstHeight;
         const data = new Uint8ClampedArray(length * 4);
         let dstIndex = 0;
         for (let i = 0; i < length; i++) {
@@ -391,6 +442,6 @@ export class Reader {
             }
             data[dstIndex++] = (alpha && includeNodata) ? 0 : 255;
         }
-        return new ImageData(data, width, height);
+        return new ImageData(data, dstWidth, dstHeight);
     };
 }

@@ -14,7 +14,6 @@ import {
   Grid,
   TextField,
   Button,
-  IconButton,
   Tooltip,
   Select,
   InputLabel,
@@ -22,27 +21,14 @@ import {
   MenuItem,
   FormHelperText,
 } from "@mui/material";
-import AddIcon from "@mui/icons-material/Add";
-import DeleteIcon from "@mui/icons-material/Delete";
 import { styled } from "@mui/system";
 
-// import { toSize } from "ol/size";
-// import ImageTile from "ol/ImageTile";
-// import Tile from "ol/Tile";
-// import XYZ from "ol/source/XYZ";
-// import TileState from "ol/TileState";
-import { transformExtent } from "ol/proj"; //get as getProjection, Projection,
-// import { register as olRegister } from "ol/proj/proj4";
-import proj4 from "proj4";
-// import { utils } from "geo4326";
 import SourceState from "ol/source/State";
 import { WebGLTile } from "ol/layer";
 
 import { useOl } from "~/hooks/useOl";
 import { useDnDSort } from "~/hooks/useDnDSort";
-import { Regional } from "~/scripts/GeotiffGrid/Regional";
-
-// import * as CustomGeoTIFFSource from "~/scripts/CustomGeoTIFF";
+import { GeoTIFFGrid, colormaps, RendererMode } from "~/scripts/GeotiffGrid";
 
 const EllipsisWrapper = styled("div")({
   overflow: "hidden",
@@ -88,10 +74,13 @@ interface LayerConf {
   layer: WebGLTile;
   sources: SourceConf[];
   id: string;
+  mode: string;
+  maxPixel: number;
+  cmap?: string;
 }
 
 const defaultSourcesValue = {
-  index: "",
+  index: "0",
   band: "1",
   nodata: "0",
   min: "0",
@@ -99,6 +88,9 @@ const defaultSourcesValue = {
 };
 
 interface Input {
+  mode: string;
+  maxPixel: string;
+  cmap: string;
   sources: {
     index: string;
     band: string;
@@ -128,8 +120,16 @@ const FileInputWrapper = styled("dl")({
   },
 });
 
-const Config = styled("div")({
-  marginBottom: "20px",
+const Config = styled("dl")({
+  display: "flex",
+  "&>dt": {
+    fontSize: "12px",
+    flex: "0 0 auto",
+    marginRight: "20px",
+  },
+  "&>dd": {
+    marginLeft: "0px",
+  },
 });
 
 const Buttons = styled("ul")({
@@ -179,25 +179,28 @@ const Viewer = (): React.ReactElement => {
     },
   });
 
-  const { control, handleSubmit, reset } = useForm<Input>({
+  const { control, handleSubmit, reset, watch } = useForm<Input>({
     mode: "onSubmit",
     criteriaMode: "all",
     defaultValues: {
-      sources: [defaultSourcesValue],
+      mode: "rgb",
+      cmap: "",
+      maxPixel: "9000000",
+      sources: [
+        { ...defaultSourcesValue, band: "1" },
+        { ...defaultSourcesValue, band: "2" },
+        { ...defaultSourcesValue, band: "3" },
+      ],
     },
   });
 
-  const { fields, append, remove } = useFieldArray({
+  const { fields } = useFieldArray({
     name: "sources",
     control,
   });
 
   const onSubmit: SubmitHandler<Input> = React.useCallback(
     data => {
-      if (![1, 3].includes(data.sources.length)) {
-        setError("SourceNumber");
-        return;
-      }
       let id = "";
       const sourceConfigs: SourceConf[] = [];
       for (let i = 0; i < data.sources.length; i++) {
@@ -225,6 +228,7 @@ const Viewer = (): React.ReactElement => {
           nodata: Number(source.nodata),
         });
       }
+      if (data.cmap.length > 0) id += "_" + data.cmap;
       const index = layerConfs.findIndex(layerConf => {
         return id === layerConf.id;
       });
@@ -233,15 +237,14 @@ const Viewer = (): React.ReactElement => {
         return;
       }
       if (!ol.map) return;
-      const sources =
-        data.sources.length === 3
-          ? [...data.sources]
-          : [data.sources[0], data.sources[0], data.sources[0]];
 
       setLoading(true);
-      const source = new Regional({
+      const source = new GeoTIFFGrid({
         files: filelist,
-        sources: sources.map(source => {
+        mode: data.mode as RendererMode,
+        maxPixel: Number(data.maxPixel),
+        cmap: data.cmap || undefined,
+        sources: data.sources.map(source => {
           return {
             index: Number(source.index),
             min: Number(source.min),
@@ -255,193 +258,56 @@ const Viewer = (): React.ReactElement => {
         source,
       });
       ol.map.addLayer(layer);
-      setLayerConfs(layerConfs => {
-        return [
-          ...layerConfs,
-          {
-            id,
-            layer,
-            sources: sourceConfigs,
-          },
-        ];
-      });
 
       const fitting = () => {
-        const originExtent = source.getBoundingBox();
-        const code = source.getProjection().getCode();
-        if (ol.map && originExtent && code) {
-          let extent = originExtent;
-          if (code !== "EPSG:3857") {
-            const transformed = transformExtent(
-              originExtent,
-              code,
-              "EPSG:3857"
-            );
-            if (transformed[0] > transformed[2])
-              transformed[2] += proj4(code, "EPSG:3857", [180, 0])[0] * 2;
-            extent = transformed;
-          }
-          ol.map.getView().fit(extent, {
-            padding: [40, 20, 40, 20],
-            maxZoom: 20,
+        if (ol.map) {
+          const extent = source.getBoundingBox("EPSG:3857");
+          if (extent)
+            ol.map.getView().fit(extent, {
+              padding: [40, 20, 40, 20],
+              maxZoom: 20,
+            });
+        }
+      };
+      const setting = () => {
+        const sourceState = source.getState();
+        if (sourceState === SourceState.READY) {
+          fitting();
+          reset();
+          setFilelist([]);
+          setLayerConfs(layerConfs => {
+            return [
+              ...layerConfs,
+              {
+                id,
+                layer,
+                sources: sourceConfigs,
+                mode: data.mode as RendererMode,
+                maxPixel: Number(data.maxPixel),
+                cmap: data.cmap || undefined,
+              },
+            ];
           });
+          setLoading(false);
+        }
+        if (sourceState === SourceState.ERROR) {
+          setError("SourceError");
+          if (ol.map) ol.map.removeLayer(layer);
         }
       };
 
       if (source.getState() === SourceState.READY) {
-        fitting();
-        reset();
-        setFilelist([]);
-        setLoading(false);
+        setting();
       } else {
         const sourceListener = () => {
           const sourceState = source.getState();
           if (sourceState !== SourceState.LOADING) {
             source.removeEventListener("change", sourceListener);
-
-            if (sourceState === SourceState.READY) {
-              fitting();
-              reset();
-              setFilelist([]);
-            }
-            if (sourceState === SourceState.ERROR) {
-              setError("SourceError");
-            }
-            setLoading(false);
+            setting();
           }
         };
         source.addEventListener("change", sourceListener);
       }
-      // const source = new CustomGeoTIFFSource.default({
-      //   sources: sources.map(source => {
-      //     return {
-      //       blob: filelist[Number(source.index)],
-      //       min: Number(source.min),
-      //       max: Number(source.max),
-      //       nodata: Number(source.nodata),
-      //       bands: [Number(source.band)],
-      //     };
-      //   }) as unknown as CustomGeoTIFFSource.SourceInfo[],
-      // });
-
-      // (async () => {
-      // if (!ol.map) return;
-      // const sourceView = await source.getView();
-      // const sourceProjection = sourceView?.projection;
-      // if (!(sourceProjection instanceof Projection)) {
-      //   return;
-      // }
-      // const code = sourceProjection.getCode();
-
-      // if (!getProjection(code)) {
-      //   try {
-      //     const crs = utils.getCrs(code);
-      //     proj4.defs(code, crs);
-      //   } catch {
-      //     return;
-      //   }
-      //   olRegister(proj4);
-      // }
-      // const tileGrid = source.getTileGrid();
-      // if (tileGrid) {
-      //   const imageSource = new XYZ({
-      //     tileGrid: tileGrid,
-      //     url: "{z},{x},{y}",
-      //     interpolate: false,
-      //     tileLoadFunction: function (imageTile: Tile, coordString: string) {
-      //       const coord = coordString.split(",").map(Number);
-      //       const tile = source.getTile(
-      //         coord[0],
-      //         coord[1],
-      //         coord[2],
-      //         1,
-      //         sourceProjection
-      //       );
-
-      //       const setImage = function () {
-      //         const tilesize = toSize(tileGrid.getTileSize(coord[0]));
-      //         const canvas = document.createElement("canvas");
-      //         canvas.width = tilesize[0];
-      //         canvas.height = tilesize[1];
-      //         const context = canvas.getContext("2d");
-      //         if (!context) return;
-      //         const imgData = context.getImageData(
-      //           0,
-      //           0,
-      //           canvas.width,
-      //           canvas.height
-      //         );
-
-      //         const pixels = imgData.data;
-      //         const data = tile.getData();
-      //         if (data instanceof DataView) return;
-      //         const l = data.length;
-      //         for (let i = 0; i < l; i++) {
-      //           pixels[i] = data[i];
-      //         }
-      //         context.putImageData(imgData, 0, 0);
-      //         ((imageTile as ImageTile).getImage() as HTMLImageElement).src =
-      //           canvas.toDataURL();
-      //       };
-
-      //       const tileState = tile.getState();
-      //       if (tileState === TileState.LOADED) {
-      //         setImage();
-      //       } else {
-      //         const tileListener = () => {
-      //           const tileState = tile.getState();
-      //           if (tileState !== TileState.LOADING) {
-      //             tile.removeEventListener("change", tileListener);
-
-      //             if (tileState === TileState.LOADED) {
-      //               setImage();
-      //             }
-      //           }
-      //         };
-      //         tile.addEventListener("change", tileListener);
-      //         tile.load();
-      //       }
-      //     },
-      //     projection: sourceProjection,
-      //   });
-
-      //   const layer = new WebGLTile({
-      //     source: imageSource,
-      //   });
-      //   ol.map.addLayer(layer);
-      //   setLayerConfs(layerConfs => {
-      //     return [
-      //       ...layerConfs,
-      //       {
-      //         id,
-      //         layer,
-      //         error: null,
-      //       },
-      //     ];
-      //   });
-
-      //   const originExtent = sourceView.extent;
-      //   if (originExtent) {
-      //     let extent = originExtent;
-      //     if (code !== "EPSG:3857") {
-      //       const transformed = transformExtent(
-      //         originExtent,
-      //         code,
-      //         "EPSG:3857"
-      //       );
-
-      //       if (transformed[0] > transformed[2])
-      //         transformed[2] += proj4(code, "EPSG:3857", [180, 0])[0] * 2;
-
-      //       extent = transformed;
-      //     }
-      //     ol.map.getView().fit(extent, {
-      //       padding: [40, 20, 40, 20],
-      //       maxZoom: 20,
-      //     });
-      //   }
-      // }
-      // })();
     },
     [filelist, ol.map, layerConfs, reset]
   );
@@ -545,14 +411,13 @@ const Viewer = (): React.ReactElement => {
                             <LayerName>
                               <Tooltip
                                 title={
-                                  <div>
+                                  <div {...item.propagation}>
                                     {item.value.sources.map((source, i) => {
                                       return (
                                         <Typography
                                           key={i}
                                           variant="caption"
                                           display="block"
-                                          {...item.propagation}
                                         >
                                           {source.file}
                                           <LayerDetail>
@@ -566,6 +431,26 @@ const Viewer = (): React.ReactElement => {
                                         </Typography>
                                       );
                                     })}
+                                    <Typography
+                                      variant="caption"
+                                      display="block"
+                                    >
+                                      Mode: {item.value.mode}
+                                    </Typography>
+                                    {item.value.cmap && (
+                                      <Typography
+                                        variant="caption"
+                                        display="block"
+                                      >
+                                        Color Map: {item.value.cmap}
+                                      </Typography>
+                                    )}
+                                    <Typography
+                                      variant="caption"
+                                      display="block"
+                                    >
+                                      Max Pixel: {item.value.maxPixel}px
+                                    </Typography>
                                   </div>
                                 }
                                 arrow
@@ -610,53 +495,348 @@ const Viewer = (): React.ReactElement => {
           </div>
         </Stack>
 
-        <Stack my={4} spacing={4}>
-          <form onSubmit={handleSubmit(onSubmit)}>
-            <FileInputWrapper>
-              <dt>Read File</dt>
-              <dd>
-                <input
-                  name="file"
-                  type="file"
-                  accept=".tiff,image/tiff"
-                  onChange={e => {
-                    if (e.target.files) {
-                      const file = e.target.files[0] || undefined;
-                      if (file) {
-                        setFilelist(prev => {
-                          return [...prev, file];
-                        });
-                        e.target.value = "";
-                      }
+        <form onSubmit={handleSubmit(onSubmit)}>
+          <FileInputWrapper>
+            <dt>Read File</dt>
+            <dd>
+              <input
+                name="file"
+                type="file"
+                accept=".tiff,image/tiff"
+                onChange={e => {
+                  if (e.target.files) {
+                    const file = e.target.files[0] || undefined;
+                    if (file) {
+                      setFilelist(prev => {
+                        return [...prev, file];
+                      });
+                      e.target.value = "";
+                      reset({
+                        mode: "rgb",
+                        cmap: "",
+                        maxPixel: "9000000",
+                        sources: [
+                          {
+                            ...defaultSourcesValue,
+                            band: "1",
+                          },
+                          {
+                            ...defaultSourcesValue,
+                            band: "2",
+                          },
+                          {
+                            ...defaultSourcesValue,
+                            band: "3",
+                          },
+                        ],
+                      });
                     }
+                  }
+                }}
+                disabled={filelist.length > 2 || loading || loading}
+              />
+            </dd>
+          </FileInputWrapper>
+          {filelist.length > 0 && (
+            <Grid container spacing={4} sx={{ mb: 4 }}>
+              <Grid item xs={12}>
+                <Controller
+                  control={control}
+                  name="mode"
+                  render={({ field, fieldState: { invalid, error } }) => (
+                    <FormControl error={invalid} fullWidth size="small">
+                      <InputLabel>Renderer Mode</InputLabel>
+                      <Select
+                        {...field}
+                        onChange={v => {
+                          const mode = v.target.value;
+
+                          switch (mode) {
+                            case "rgb": {
+                              reset({
+                                mode: "rgb",
+                                cmap: "",
+                                maxPixel: "9000000",
+                                sources: [
+                                  { ...defaultSourcesValue, band: "1" },
+                                  { ...defaultSourcesValue, band: "2" },
+                                  { ...defaultSourcesValue, band: "3" },
+                                ],
+                              });
+                              break;
+                            }
+                            case "single": {
+                              reset({
+                                mode: "single",
+                                cmap: colormaps[0],
+                                maxPixel: "9000000",
+                                sources: [
+                                  { ...defaultSourcesValue, band: "1" },
+                                ],
+                              });
+                              break;
+                            }
+                            case "ndi": {
+                              reset({
+                                mode: "ndi",
+                                cmap: colormaps[0],
+                                maxPixel: "9000000",
+                                sources: [
+                                  { ...defaultSourcesValue, band: "1" },
+                                  { ...defaultSourcesValue, band: "2" },
+                                ],
+                              });
+                              break;
+                            }
+                          }
+                        }}
+                      >
+                        {["rgb", "single", "ndi"].map((v, i) => {
+                          return (
+                            <MenuItem value={v} key={i}>
+                              {v}
+                            </MenuItem>
+                          );
+                        })}
+                      </Select>
+
+                      {error?.type === "required" && (
+                        <FormHelperText>
+                          Required. <br />
+                          必須です。選択してください。
+                        </FormHelperText>
+                      )}
+                    </FormControl>
+                  )}
+                  rules={{
+                    required: true,
                   }}
-                  disabled={filelist.length > 2 || loading || loading}
                 />
-              </dd>
-            </FileInputWrapper>
-            {fields.map((field, index) => {
-              return (
-                <Config key={field.id}>
+              </Grid>
+              <Grid item xs={12}>
+                {fields.map((field, index) => {
+                  return (
+                    <Config key={field.id}>
+                      <dt>Index {index}</dt>
+                      <dd>
+                        <Controller
+                          control={control}
+                          name={`sources.${index}.index`}
+                          render={({
+                            field,
+                            fieldState: { invalid, error },
+                          }) => (
+                            <FormControl error={invalid} fullWidth size="small">
+                              <InputLabel>File</InputLabel>
+                              <Select
+                                {...field}
+                                disabled={filelist.length < 1 || loading}
+                              >
+                                {filelist.map((f, i) => {
+                                  return (
+                                    <MenuItem value={String(i)} key={i}>
+                                      {f.name}
+                                    </MenuItem>
+                                  );
+                                })}
+                              </Select>
+
+                              {error?.type === "required" && (
+                                <FormHelperText>
+                                  Required. <br />
+                                  必須です。選択してください。
+                                </FormHelperText>
+                              )}
+                            </FormControl>
+                          )}
+                          rules={{
+                            required: true,
+                          }}
+                        />
+                        <Stack
+                          direction="row"
+                          spacing={2}
+                          sx={{ mt: 2, mb: 1 }}
+                        >
+                          <Controller
+                            control={control}
+                            name={`sources.${index}.band`}
+                            render={({
+                              field,
+                              fieldState: { invalid, error },
+                            }) => (
+                              <FormControl
+                                component="fieldset"
+                                error={invalid}
+                                fullWidth
+                              >
+                                <TextField
+                                  {...field}
+                                  label="band"
+                                  size="small"
+                                  error={invalid}
+                                  disabled={loading}
+                                  placeholder="1"
+                                />
+                                {error?.type === "required" && (
+                                  <FormHelperText>
+                                    Required. <br />
+                                    必須です。入力してください。
+                                  </FormHelperText>
+                                )}
+                                {error?.type === "pattern" && (
+                                  <FormHelperText>
+                                    must be a number. <br />
+                                    数値を入力してください。
+                                  </FormHelperText>
+                                )}
+                              </FormControl>
+                            )}
+                            rules={{
+                              required: true,
+                              pattern: /^((\+|-){0,1}[1-9]\d*|0)(\.\d+)?$/,
+                            }}
+                          />
+                          <Controller
+                            control={control}
+                            name={`sources.${index}.nodata`}
+                            render={({
+                              field,
+                              fieldState: { invalid, error },
+                            }) => (
+                              <FormControl
+                                component="fieldset"
+                                error={invalid}
+                                disabled={loading}
+                                fullWidth
+                              >
+                                <TextField
+                                  {...field}
+                                  label="nodata"
+                                  size="small"
+                                  error={invalid}
+                                />
+                                {error?.type === "required" && (
+                                  <FormHelperText>
+                                    Required. <br />
+                                    必須です。入力してください。
+                                  </FormHelperText>
+                                )}
+                                {error?.type === "pattern" && (
+                                  <FormHelperText>
+                                    must be a number. <br />
+                                    数値を入力してください。
+                                  </FormHelperText>
+                                )}
+                              </FormControl>
+                            )}
+                            rules={{
+                              required: true,
+                              pattern: /^((\+|-){0,1}[1-9]\d*|0)(\.\d+)?$/,
+                            }}
+                          />
+                          <Controller
+                            control={control}
+                            name={`sources.${index}.min`}
+                            render={({
+                              field,
+                              fieldState: { invalid, error },
+                            }) => (
+                              <FormControl
+                                component="fieldset"
+                                error={invalid}
+                                disabled={loading}
+                                fullWidth
+                              >
+                                <TextField
+                                  {...field}
+                                  label="min"
+                                  size="small"
+                                  error={invalid}
+                                />
+                                {error?.type === "required" && (
+                                  <FormHelperText>
+                                    Required. <br />
+                                    必須です。入力してください。
+                                  </FormHelperText>
+                                )}
+                                {error?.type === "pattern" && (
+                                  <FormHelperText>
+                                    must be a number. <br />
+                                    数値を入力してください。
+                                  </FormHelperText>
+                                )}
+                              </FormControl>
+                            )}
+                            rules={{
+                              required: true,
+                              pattern: /^((\+|-){0,1}[1-9]\d*|0)(\.\d+)?$/,
+                            }}
+                          />
+                          <Controller
+                            control={control}
+                            name={`sources.${index}.max`}
+                            render={({
+                              field,
+                              fieldState: { invalid, error },
+                            }) => (
+                              <FormControl
+                                component="fieldset"
+                                error={invalid}
+                                disabled={loading}
+                                fullWidth
+                              >
+                                <TextField
+                                  {...field}
+                                  label="max"
+                                  size="small"
+                                  error={invalid}
+                                />
+                                {error?.type === "required" && (
+                                  <FormHelperText>
+                                    Required. <br />
+                                    必須です。入力してください。
+                                  </FormHelperText>
+                                )}
+                                {error?.type === "pattern" && (
+                                  <FormHelperText>
+                                    must be a number. <br />
+                                    数値を入力してください。
+                                  </FormHelperText>
+                                )}
+                              </FormControl>
+                            )}
+                            rules={{
+                              required: true,
+                              pattern: /^((\+|-){0,1}[1-9]\d*|0)(\.\d+)?$/,
+                            }}
+                          />
+                        </Stack>
+                      </dd>
+                    </Config>
+                  );
+                })}
+              </Grid>
+              {watch().mode !== "rgb" && (
+                <Grid item xs={6}>
                   <Controller
                     control={control}
-                    name={`sources.${index}.index`}
+                    name="cmap"
                     render={({ field, fieldState: { invalid, error } }) => (
                       <FormControl error={invalid} fullWidth size="small">
-                        <InputLabel>File</InputLabel>
-                        <Select
-                          {...field}
-                          disabled={filelist.length < 1 || loading}
-                        >
-                          {filelist.map((f, i) => {
+                        <InputLabel>Color Map</InputLabel>
+                        <Select {...field}>
+                          {colormaps.map((v, i) => {
                             return (
-                              <MenuItem value={String(i)} key={i}>
-                                {f.name}
+                              <MenuItem value={v} key={i}>
+                                {v}
                               </MenuItem>
                             );
                           })}
                         </Select>
 
-                        {error?.type === "required" && (
+                        {(error?.type === "required" ||
+                          error?.type === "minLength") && (
                           <FormHelperText>
                             Required. <br />
                             必須です。選択してください。
@@ -666,234 +846,100 @@ const Viewer = (): React.ReactElement => {
                     )}
                     rules={{
                       required: true,
+                      minLength: 1,
                     }}
                   />
-                  <Stack direction="row" spacing={2} sx={{ mt: 2, mb: 1 }}>
-                    <Controller
-                      control={control}
-                      name={`sources.${index}.band`}
-                      render={({ field, fieldState: { invalid, error } }) => (
-                        <FormControl
-                          component="fieldset"
-                          error={invalid}
-                          fullWidth
-                        >
-                          <TextField
-                            {...field}
-                            label="band"
-                            size="small"
-                            error={invalid}
-                            disabled={loading}
-                            placeholder="1"
-                          />
-                          {error?.type === "required" && (
-                            <FormHelperText>
-                              Required. <br />
-                              必須です。入力してください。
-                            </FormHelperText>
-                          )}
-                          {error?.type === "pattern" && (
-                            <FormHelperText>
-                              must be a number. <br />
-                              数値を入力してください。
-                            </FormHelperText>
-                          )}
-                        </FormControl>
-                      )}
-                      rules={{
-                        required: true,
-                        pattern: /^((\+|-){0,1}[1-9]\d*|0)(\.\d+)?$/,
-                      }}
-                    />
-                    <Controller
-                      control={control}
-                      name={`sources.${index}.nodata`}
-                      render={({ field, fieldState: { invalid, error } }) => (
-                        <FormControl
-                          component="fieldset"
-                          error={invalid}
-                          disabled={loading}
-                          fullWidth
-                        >
-                          <TextField
-                            {...field}
-                            label="nodata"
-                            size="small"
-                            error={invalid}
-                          />
-                          {error?.type === "required" && (
-                            <FormHelperText>
-                              Required. <br />
-                              必須です。入力してください。
-                            </FormHelperText>
-                          )}
-                          {error?.type === "pattern" && (
-                            <FormHelperText>
-                              must be a number. <br />
-                              数値を入力してください。
-                            </FormHelperText>
-                          )}
-                        </FormControl>
-                      )}
-                      rules={{
-                        required: true,
-                        pattern: /^((\+|-){0,1}[1-9]\d*|0)(\.\d+)?$/,
-                      }}
-                    />
-                    <Controller
-                      control={control}
-                      name={`sources.${index}.min`}
-                      render={({ field, fieldState: { invalid, error } }) => (
-                        <FormControl
-                          component="fieldset"
-                          error={invalid}
-                          disabled={loading}
-                          fullWidth
-                        >
-                          <TextField
-                            {...field}
-                            label="min"
-                            size="small"
-                            error={invalid}
-                          />
-                          {error?.type === "required" && (
-                            <FormHelperText>
-                              Required. <br />
-                              必須です。入力してください。
-                            </FormHelperText>
-                          )}
-                          {error?.type === "pattern" && (
-                            <FormHelperText>
-                              must be a number. <br />
-                              数値を入力してください。
-                            </FormHelperText>
-                          )}
-                        </FormControl>
-                      )}
-                      rules={{
-                        required: true,
-                        pattern: /^((\+|-){0,1}[1-9]\d*|0)(\.\d+)?$/,
-                      }}
-                    />
-                    <Controller
-                      control={control}
-                      name={`sources.${index}.max`}
-                      render={({ field, fieldState: { invalid, error } }) => (
-                        <FormControl
-                          component="fieldset"
-                          error={invalid}
-                          disabled={loading}
-                          fullWidth
-                        >
-                          <TextField
-                            {...field}
-                            label="max"
-                            size="small"
-                            error={invalid}
-                          />
-                          {error?.type === "required" && (
-                            <FormHelperText>
-                              Required. <br />
-                              必須です。入力してください。
-                            </FormHelperText>
-                          )}
-                          {error?.type === "pattern" && (
-                            <FormHelperText>
-                              must be a number. <br />
-                              数値を入力してください。
-                            </FormHelperText>
-                          )}
-                        </FormControl>
-                      )}
-                      rules={{
-                        required: true,
-                        pattern: /^((\+|-){0,1}[1-9]\d*|0)(\.\d+)?$/,
-                      }}
-                    />
-                  </Stack>
-
-                  <div>
-                    {index > 0 && (
-                      <IconButton
-                        color="primary"
+                </Grid>
+              )}
+              <Grid item xs={6}>
+                <Controller
+                  control={control}
+                  name="maxPixel"
+                  render={({ field, fieldState: { invalid, error } }) => (
+                    <FormControl
+                      component="fieldset"
+                      error={invalid}
+                      disabled={loading}
+                      fullWidth
+                    >
+                      <TextField
+                        {...field}
+                        label="Max Pixel Size"
                         size="small"
-                        aria-label="Delete"
-                        component="span"
-                        disabled={loading}
+                        error={invalid}
+                      />
+                      {error?.type === "required" && (
+                        <FormHelperText>
+                          Required. <br />
+                          必須です。入力してください。
+                        </FormHelperText>
+                      )}
+                      {error?.type === "pattern" && (
+                        <FormHelperText>
+                          must be a number. <br />
+                          正の整数を入力してください。
+                        </FormHelperText>
+                      )}
+                    </FormControl>
+                  )}
+                  rules={{
+                    required: true,
+                    pattern: /^([1-9][0-9]*|0)$/,
+                  }}
+                />
+              </Grid>
+              <Grid item xs={12}>
+                <FormControl error={!!error}>
+                  <Buttons>
+                    <li>
+                      <Button
+                        variant="contained"
+                        type="submit"
+                        disabled={filelist.length < 1 || loading}
                         onClick={() => {
-                          remove(index);
+                          setError(null);
                         }}
                       >
-                        <DeleteIcon />
-                      </IconButton>
-                    )}
-                    {index === fields.length - 1 && index < 2 && (
-                      <IconButton
-                        color="primary"
-                        size="small"
-                        aria-label="Add"
-                        component="span"
-                        disabled={loading}
+                        Add Layer
+                      </Button>
+                    </li>
+                    <li>
+                      <Button
+                        variant="outlined"
+                        type="button"
                         onClick={() => {
-                          append(defaultSourcesValue);
+                          setFilelist([]);
+                          reset();
                         }}
+                        disabled={filelist.length < 1 || loading}
                       >
-                        <AddIcon />
-                      </IconButton>
-                    )}
-                  </div>
-                </Config>
-              );
-            })}
-            <FormControl error={!!error} sx={{ mt: 3 }}>
-              <Buttons>
-                <li>
-                  <Button
-                    variant="contained"
-                    type="submit"
-                    disabled={filelist.length < 1 || loading}
-                    onClick={() => {
-                      setError(null);
-                    }}
-                  >
-                    Add Layer
-                  </Button>
-                </li>
-                <li>
-                  <Button
-                    variant="outlined"
-                    type="button"
-                    onClick={() => {
-                      setFilelist([]);
-                      reset();
-                    }}
-                    disabled={filelist.length < 1 || loading}
-                  >
-                    Clear
-                  </Button>
-                </li>
-              </Buttons>
-              {error === "SourceNumber" && (
-                <FormHelperText sx={{ ml: 0 }}>
-                  Unexpected number of sources. <br />
-                  ソースの数が正しくありません。
-                </FormHelperText>
-              )}
-              {error === "SourceError" && (
-                <FormHelperText sx={{ ml: 0 }}>
-                  Catched source error. <br />
-                  ソースの設定が正しくありません。
-                </FormHelperText>
-              )}
-              {error === "Duplicate" && (
-                <FormHelperText sx={{ ml: 0 }}>
-                  Duplicate Layer. <br />
-                  すでに同じレイヤーが存在します。
-                </FormHelperText>
-              )}
-            </FormControl>
-          </form>
-        </Stack>
+                        Clear
+                      </Button>
+                    </li>
+                  </Buttons>
+                  {error === "SourceNumber" && (
+                    <FormHelperText sx={{ ml: 0 }}>
+                      Unexpected number of sources. <br />
+                      ソースの数が正しくありません。
+                    </FormHelperText>
+                  )}
+                  {error === "SourceError" && (
+                    <FormHelperText sx={{ ml: 0 }}>
+                      Catched source error. <br />
+                      ソースの設定が正しくありません。
+                    </FormHelperText>
+                  )}
+                  {error === "Duplicate" && (
+                    <FormHelperText sx={{ ml: 0 }}>
+                      Duplicate Layer. <br />
+                      すでに同じレイヤーが存在します。
+                    </FormHelperText>
+                  )}
+                </FormControl>
+              </Grid>
+            </Grid>
+          )}
+        </form>
       </Container>
     </>
   );
