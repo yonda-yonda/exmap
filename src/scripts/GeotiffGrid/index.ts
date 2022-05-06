@@ -524,9 +524,22 @@ export class GeoTIFFGrid extends TileImage {
         let rotatedWidth = rotatedCoordinates[2] - rotatedCoordinates[0];
         let rotatedHeight = rotatedCoordinates[3] - rotatedCoordinates[1];
 
-        if (options?.maxPixel && options.maxPixel > 0 && options.maxPixel < rotatedWidth * rotatedHeight) {
-            const m = options.maxPixel;
-            const scale = Math.sqrt(m / (rotatedWidth * rotatedHeight));
+        if (maxWidth > 0 && maxWidth < rotatedWidth) {
+            const scale = maxWidth / rotatedWidth;
+            rotatedWidth = roundScale(rotatedWidth, scale);
+            rotatedHeight = roundScale(rotatedHeight, scale);
+            imageWidth = roundScale(imageWidth, scale);
+            imageHeight = roundScale(imageHeight, scale);
+        }
+        if (maxHeight > 0 && maxHeight < rotatedHeight) {
+            const scale = maxHeight / rotatedHeight;
+            rotatedWidth = roundScale(rotatedWidth, scale);
+            rotatedHeight = roundScale(rotatedHeight, scale);
+            imageWidth = roundScale(imageWidth, scale);
+            imageHeight = roundScale(imageHeight, scale);
+        }
+        if (maxPixel > 0 && maxPixel < rotatedWidth * rotatedHeight) {
+            const scale = Math.sqrt(maxPixel / (rotatedWidth * rotatedHeight));
             rotatedWidth = roundScale(rotatedWidth, scale);
             rotatedHeight = roundScale(rotatedHeight, scale);
             imageWidth = roundScale(imageWidth, scale);
@@ -548,27 +561,6 @@ export class GeoTIFFGrid extends TileImage {
                 imageWidth = roundScale(imageWidth, r);
                 imageHeight = roundScale(imageHeight, r);
             }
-        }
-        if (maxWidth > 0 && maxWidth < rotatedWidth) {
-            const scale = maxWidth / rotatedWidth;
-            rotatedWidth = roundScale(rotatedWidth, scale);
-            rotatedHeight = roundScale(rotatedHeight, scale);
-            imageWidth = roundScale(imageWidth, scale);
-            imageHeight = roundScale(imageHeight, scale);
-        }
-        if (maxHeight > 0 && maxHeight < rotatedHeight) {
-            const scale = maxHeight / rotatedHeight;
-            rotatedWidth = roundScale(rotatedWidth, scale);
-            rotatedHeight = roundScale(rotatedHeight, scale);
-            imageWidth = roundScale(imageWidth, scale);
-            imageHeight = roundScale(imageHeight, scale);
-        }
-        if (maxPixel > 0 && maxPixel < rotatedWidth * rotatedHeight) {
-            const scale = Math.sqrt(maxPixel / (rotatedWidth * rotatedHeight));
-            rotatedWidth = roundScale(rotatedWidth, scale);
-            rotatedHeight = roundScale(rotatedHeight, scale);
-            imageWidth = roundScale(imageWidth, scale);
-            imageHeight = roundScale(imageHeight, scale);
         }
         this.width_ = imageWidth;
         this.height_ = imageHeight;

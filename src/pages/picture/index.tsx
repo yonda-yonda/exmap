@@ -30,8 +30,7 @@ import { useDnDSort } from "~/hooks/useDnDSort";
 import { register as olRegister } from "ol/proj/proj4";
 import { utils } from "geo4326";
 
-import { Global, isSupportedCode } from "~/scripts/ImageGrid/Global";
-import { Regional } from "~/scripts/ImageGrid/Regional";
+import { ImageGrid } from "~/scripts/ImageGrid";
 
 const CodeStatus = styled("div")({
   fontSize: "12px",
@@ -106,7 +105,7 @@ type FormError =
   | "UnsupportedCrs";
 
 type LayerConf = {
-  layer: TileLayer<Regional | Global>;
+  layer: TileLayer<ImageGrid>;
   name: string;
   id: string;
 };
@@ -276,29 +275,17 @@ const Viewer = (): React.ReactElement => {
           break;
         }
       }
-      let imageSource: Regional | Global | null = null;
+      let imageSource: ImageGrid | null = null;
       try {
-        if (isSupportedCode(code)) {
-          imageSource = new Global({
-            projection: code,
-            file,
-            url,
-            imageExtent: extent,
-            rotate: (rotate / 180) * Math.PI,
-            crossOrigin: "anonymous",
-            wrapX: true,
-          });
-        } else {
-          imageSource = new Regional({
-            projection: code,
-            file,
-            url,
-            imageExtent: extent,
-            rotate: (rotate / 180) * Math.PI,
-            crossOrigin: "anonymous",
-            wrapX: true,
-          });
-        }
+        imageSource = new ImageGrid({
+          projection: code,
+          file,
+          url,
+          imageExtent: extent,
+          rotate: (rotate / 180) * Math.PI,
+          crossOrigin: "anonymous",
+          wrapX: true,
+        });
       } catch {
         setError("UnsupportedExtent");
         setLoading(false);
