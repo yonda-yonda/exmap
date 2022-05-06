@@ -450,11 +450,11 @@ export class GeoTIFFGrid extends TileImage {
                 const image = await reader.getImage(this.samples_[i].index);
                 if (imageWidth !== image?.getWidth()) {
                     this.setState(SourceState.ERROR);
-                    throw new Error("Unmatched width.");
+                    return;
                 }
                 if (imageHeight !== image?.getHeight()) {
                     this.setState(SourceState.ERROR);
-                    throw new Error("Unmatched height.");
+                    return;
                 }
             }
         }
@@ -479,7 +479,7 @@ export class GeoTIFFGrid extends TileImage {
         }
         if (!code || !projection) {
             this.setState(SourceState.ERROR);
-            throw new Error("Unsupported projection.");
+            return;
         }
         this.projection = projection;
         const originExtentSize = [imageExtent[2] - imageExtent[0], imageExtent[3] - imageExtent[1]];
@@ -580,7 +580,7 @@ export class GeoTIFFGrid extends TileImage {
         });
         if (!tileGrid) {
             this.setState(SourceState.ERROR);
-            throw new Error("Unexpected error.");
+            return;
         }
 
         this.tileGrid = tileGrid;
@@ -590,7 +590,7 @@ export class GeoTIFFGrid extends TileImage {
         const tempContext = tempCanvas.getContext("2d");
         if (!context || !tempContext) {
             this.setState(SourceState.ERROR);
-            throw new Error("Unexpected error.");
+            return;
         }
         reader.render({
             mode: this.mode_,
@@ -613,7 +613,6 @@ export class GeoTIFFGrid extends TileImage {
             this.setState(SourceState.READY);
         }).catch(() => {
             this.setState(SourceState.ERROR);
-            throw new Error("Unexpected error.");
         });
     }
 }
