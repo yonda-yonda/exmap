@@ -28,7 +28,6 @@
     "cesium": "^1.90.0",
     "gatsby": "^4.4.0",
     "geo4326": "^1.4.1",
-    "geotiff": "^1.0.9",
     "https-browserify": "^1.0.0",
     "ol": "^6.13.0",
     "path-browserify": "^1.0.1",
