@@ -1,8 +1,10 @@
 import * as React from "react";
 import { useForm, SubmitHandler } from "react-hook-form";
 import { Helmet } from "react-helmet-async";
-import { Stack, Button, FormControl, FormHelperText } from "@mui/material";
-import { fromBlob } from "geotiff";
+import { Stack, Button, FormControl, FormHelperText, Box } from "@mui/material";
+import { fromBlob, TypedArrayArrayWithDimensions } from "geotiff";
+
+import cv from "opencv-ts";
 
 type FormError = "FailedLoadSource";
 const defaultSourceValue = {
@@ -16,6 +18,8 @@ type Input = {
 const Index = (): React.ReactElement => {
   const [error, setError] = React.useState<FormError | null>(null);
   const [loading, setLoading] = React.useState<boolean>();
+  const canvasRef = React.useRef<HTMLCanvasElement>(null);
+
   const {
     handleSubmit,
     register,
@@ -29,29 +33,58 @@ const Index = (): React.ReactElement => {
   const onSubmit: SubmitHandler<Input> = React.useCallback(data => {
     setLoading(true);
     (async () => {
-      if (data.files[0] instanceof File) {
-        const tiff = await fromBlob(data.files[0]);
-        const image = await tiff.getImage(0);
-        const width = image.getWidth();
-        const height = image.getHeight();
+      try {
+        if (data.files[0] instanceof File) {
+          const start = new Date();
+          const tiff = await fromBlob(data.files[0]);
+          const image = await tiff.getImage(0);
+          const width = image.getWidth();
+          const height = image.getHeight();
+          const bundNumber =
+            image.getSamplesPerPixel() > 2
+              ? Math.min(image.getSamplesPerPixel(), 3)
+              : 1;
+          const cvType = bundNumber > 1 ? cv.CV_8UC3 : cv.CV_8UC1;
+          const [x, y] = [4000, 4000];
+          const size = [2000, 2000];
+          const values = await image.readRasters({
+            window: [
+              x,
+              y,
+              x + size[0] >= width ? width : x + size[0],
+              y + size[1] >= height ? height : y + size[1],
+            ],
+            samples: Array.from({ length: bundNumber }, (_, k) => k),
+          });
+          let value: number[] = [];
+          if (Array.isArray(values)) {
+            const vs = values as TypedArrayArrayWithDimensions;
+            if (bundNumber > 1) {
+              for (let i = 0; i < values[0].length; i++) {
+                value.push(vs[0][i]);
+                value.push(vs[1][i]);
+                value.push(vs[2][i]);
+              }
+            } else {
+              value = Array.from(values[0]);
+            }
+          } else {
+            value = Array.from(values);
+          }
 
-        console.log(width, height);
-        const start = new Date();
-        const [x, y] = [100, 100];
-        const size = 1;
-        const values = await image.readRasters({
-          window: [
-            x,
-            y,
-            x + size >= width ? width : x + size,
-            y + size >= height ? height : y + size,
-          ],
-          samples: [0],
-        });
-        const end = new Date();
-        console.log(values, (end.getTime() - start.getTime()) / 1000);
+          const canvas = canvasRef.current;
+          if (canvas) {
+            canvas.width = size[0];
+            canvas.height = size[1];
+          }
+          cv.imshow("canvas", cv.matFromArray(size[1], size[0], cvType, value));
+
+          const end = new Date();
+          console.log("time:" + (end.getTime() - start.getTime()) / 1000);
+        }
+      } finally {
+        setLoading(false);
       }
-      setLoading(false);
     })();
   }, []);
 
@@ -99,7 +132,7 @@ const Index = (): React.ReactElement => {
                 setError(null);
               }}
             >
-              Add Layer
+              load
             </Button>
           </div>
           {error === "FailedLoadSource" && (
@@ -110,6 +143,9 @@ const Index = (): React.ReactElement => {
           )}
         </FormControl>
       </form>
+      <Box sx={{ pt: 1 }}>
+        <canvas ref={canvasRef} id="canvas"></canvas>
+      </Box>
     </>
   );
 };
