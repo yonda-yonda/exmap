@@ -6,6 +6,7 @@ import { Container, Paper, Typography, Stack, Link } from "@mui/material";
 import CategoryIcon from "@mui/icons-material/Category";
 import ContentCutIcon from "@mui/icons-material/ContentCut";
 import ColorizeIcon from "@mui/icons-material/Colorize";
+import EqualizerIcon from "@mui/icons-material/Equalizer";
 import LayersIcon from "@mui/icons-material/Layers";
 import InsertPhotoIcon from "@mui/icons-material/InsertPhoto";
 import CloudDownloadIcon from "@mui/icons-material/CloudDownload";
@@ -150,6 +151,20 @@ const Index = (): React.ReactElement => {
                   <span>Image</span>
                 </StyledPaper>
               </GatsbyLink>
+              <GatsbyLink
+                to="/univar"
+                style={{ color: "inherit", textDecoration: "inherit" }}
+              >
+                <StyledPaper
+                  variant="outlined"
+                  sx={{
+                    padding: 1,
+                  }}
+                >
+                  <EqualizerIcon />
+                  <span>Statics</span>
+                </StyledPaper>
+              </GatsbyLink>
             </Stack>
           </section>
           <section>
@@ -176,6 +191,14 @@ const Index = (): React.ReactElement => {
                   target="_blank"
                 >
                   geo4326
+                </Link>
+              </li>
+              <li>
+                <Link
+                  href="https://github.com/theothergrantdavidson/opencv-ts/"
+                  target="_blank"
+                >
+                  opencv-ts
                 </Link>
               </li>
             </ul>
