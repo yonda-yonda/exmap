@@ -133,9 +133,10 @@ type DrawInput = {
 
 type StaticValue = {
   mean: number;
-  variance: number;
+  stddev: number;
   min: { value: number; position: Point };
   max: { value: number; position: Point };
+  hist: TypedArray | null;
 };
 
 type TiffData = {
@@ -230,6 +231,89 @@ const FileSelect = (props: FileSelectProps): React.ReactElement => {
         </FormControl>
       </Stack>
     </form>
+  );
+};
+
+const StaticsItem = (props: { statics: StaticValue }): React.ReactElement => {
+  const { statics } = props;
+  const drawRef = React.useRef<HTMLElement>(null);
+  React.useEffect(() => {
+    if (statics.hist && drawRef.current) {
+      const drawElement = drawRef.current;
+      while (drawElement.firstChild) {
+        drawElement.removeChild(drawElement.firstChild);
+      }
+
+      const dstWidth = 256;
+      const bins = statics.hist.length;
+      const rate = 2;
+      const histImageSize = [rate * bins, bins];
+      const max = Math.max(...Array.from(statics.hist));
+      const dst = new cv.Mat.zeros(
+        histImageSize[1],
+        histImageSize[0],
+        cv.CV_8UC3
+      );
+      cv.rectangle(
+        dst,
+        new cv.Point(0, 0),
+        new cv.Point(histImageSize[0] - 1, histImageSize[1] - 1),
+        new cv.Scalar(224, 224, 224),
+        cv.FILLED
+      );
+
+      for (let i = 0; i < bins; i++) {
+        if (statics.hist[i] > 0) {
+          const binVal = (statics.hist[i] * histImageSize[1]) / max;
+          const point1 = new cv.Point(
+            (i * histImageSize[0]) / bins,
+            histImageSize[1] - 1
+          );
+          const point2 = new cv.Point(
+            ((i + 1) * histImageSize[0]) / bins - 1,
+            histImageSize[1] - binVal
+          );
+          cv.rectangle(dst, point1, point2, new cv.Scalar(0, 0, 0), cv.FILLED);
+        }
+      }
+      const resized = new cv.Mat();
+      const resizedSize = [
+        dstWidth,
+        Math.floor((histImageSize[1] * dstWidth) / histImageSize[0]),
+      ];
+      cv.resize(
+        dst,
+        resized,
+        new cv.Size(resizedSize[0], resizedSize[1]),
+        0,
+        0,
+        cv.INTER_AREA
+      );
+
+      const canvas = document.createElement("canvas");
+      canvas.width = resizedSize[0];
+      canvas.height = resizedSize[1];
+
+      cv.imshow(canvas, resized);
+      drawElement.appendChild(canvas);
+    }
+  }, [statics]);
+  ////
+  return (
+    <Stack spacing={2}>
+      <Box>
+        min {statics.min.value} at ({statics.min.position.x},{" "}
+        {statics.min.position.y})
+        <br />
+        max {statics.max.value} at ({statics.max.position.x},{" "}
+        {statics.max.position.y})
+        <br />
+        mean {statics.mean}
+        <br />
+        stddev {statics.stddev}
+      </Box>
+      {statics.hist && <Box ref={drawRef}></Box>}
+    </Stack>
   );
 };
 
@@ -383,7 +467,8 @@ const ReadConfig = (props: ReadConfigProps): React.ReactElement => {
           const calc = (
             valus: TypedArrayWithDimensions | TypedArray,
             size: number[],
-            type: number
+            type: number,
+            range: number[]
           ): StaticValue => {
             const mat = cv.matFromArray(
               size[1],
@@ -396,9 +481,31 @@ const ReadConfig = (props: ReadConfigProps): React.ReactElement => {
             const stddev = new cv.Mat();
             cv.meanStdDev(mat, mean, stddev);
 
+            const stddevValue = stddev.doubleAt(0, 0);
+            const k = (3.5 * stddevValue) / Math.pow(mat.rows, 1 / 3);
+            let hist: TypedArray | null = null;
+            try {
+              const imgVec = new cv.MatVector();
+              imgVec.push_back(mat);
+              const histMat = new cv.Mat();
+              const min = range[0];
+              const max = range[1] + 1;
+              const bins = (max - min) / k;
+              cv.calcHist(
+                imgVec,
+                [0],
+                new cv.Mat(),
+                histMat,
+                [bins],
+                [min, max]
+              );
+              hist = histMat.data32F;
+              // eslint-disable-next-line no-empty
+            } catch {}
+
             return {
               mean: mean.doubleAt(0, 0),
-              variance: stddev.doubleAt(0, 0),
+              stddev: stddevValue,
               min: {
                 value: minVal,
                 position: minLoc,
@@ -407,13 +514,16 @@ const ReadConfig = (props: ReadConfigProps): React.ReactElement => {
                 value: maxVal,
                 position: maxLoc,
               },
+              hist,
             };
           };
           const type = tiffValue.range[2];
           if (type !== null) {
             const start2 = new Date();
-            values.forEach((v, i) => {
-              calcurated.push(calc(v, size, type));
+            values.forEach(v => {
+              calcurated.push(
+                calc(v, size, type, [tiffValue.range[0], tiffValue.range[1]])
+              );
             });
             const end2 = new Date();
             calcurating = (end2.getTime() - start2.getTime()) / 1000;
@@ -1161,19 +1271,7 @@ const Index = (): React.ReactElement => {
                             </TableCell>
                             <TableCell>
                               {v.statics ? (
-                                <Box>
-                                  min {v.statics.min.value} at (
-                                  {v.statics.min.position.x},{" "}
-                                  {v.statics.min.position.y})
-                                  <br />
-                                  max {v.statics.max.value} at (
-                                  {v.statics.max.position.x},{" "}
-                                  {v.statics.max.position.y})
-                                  <br />
-                                  mean {v.statics.mean}
-                                  <br />
-                                  variance {v.statics.variance}
-                                </Box>
+                                <StaticsItem statics={v.statics} />
                               ) : (
                                 "failed."
                               )}
