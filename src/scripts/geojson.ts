@@ -66,14 +66,13 @@ export const getPolygon = (geojson: GeoJSON): Polygon | null => {
       }
       break;
     }
-    case "GeometryCollection":
-      {
-        for (let i = 0; i < geojson.geometries.length; i++) {
-          const item = getPolygon(geojson.geometries[i]);
-          if (item) return item;
-        }
+    case "GeometryCollection": {
+      for (let i = 0; i < geojson.geometries.length; i++) {
+        const item = getPolygon(geojson.geometries[i]);
+        if (item) return item;
       }
       break;
+    }
   }
   return null;
 };

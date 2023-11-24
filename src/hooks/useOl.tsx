@@ -1,10 +1,10 @@
 import { Map, View } from "ol";
 import "ol/ol.css";
-import { defaults as defaultInteraction } from "ol/interaction";
 import { defaults as defaultControls, Attribution, Control } from "ol/control";
+import { defaults as defaultInteraction } from "ol/interaction";
 import TileLayer from "ol/layer/Tile";
-import OSM from "ol/source/OSM";
 import { fromLonLat, get as getProjection, transform } from "ol/proj";
+import OSM from "ol/source/OSM";
 import * as React from "react";
 
 export interface UseOlProps {

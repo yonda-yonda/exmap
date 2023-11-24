@@ -1,12 +1,13 @@
+import { Container, Typography } from "@mui/material";
+import CssBaseline from "@mui/material/CssBaseline";
+import TileLayer from "ol/layer/Tile";
+import MapBrowserEvent from "ol/MapBrowserEvent";
+import { toLonLat } from "ol/proj";
+import XYZ from "ol/source/XYZ";
 import * as React from "react";
 import { Helmet } from "react-helmet-async";
-import CssBaseline from "@mui/material/CssBaseline";
-import { Container, Typography } from "@mui/material";
-import XYZ from "ol/source/XYZ";
+
 import { useOl } from "~/hooks/useOl";
-import TileLayer from "ol/layer/Tile";
-import { toLonLat } from "ol/proj";
-import MapBrowserEvent from "ol/MapBrowserEvent";
 
 // https://wiki.openstreetmap.org/wiki/Slippy_map_tilenames#ECMAScript_.28JavaScript.2FActionScript.2C_etc..29
 const deg2tile = (
@@ -86,7 +87,7 @@ const getPixelValue = (
 const dsm = (rgb: number[], u = 100) => {
   // https://maps.gsi.go.jp/development/demtile.html
   let hyoko = Math.floor(rgb[0] * 256 * 256 + rgb[1] * 256 + rgb[2]);
-  if (hyoko == 8388608) return NaN;
+  if (hyoko === 8388608) return NaN;
   if (hyoko > 8388608) hyoko = (hyoko - 16777216) / u;
   if (hyoko < 8388608) hyoko = hyoko / u;
   return hyoko;
@@ -134,8 +135,7 @@ const Picker = (): React.ReactElement => {
               zoom--;
             }
             if (zoom < 0) throw new Error("can't get image.");
-          } catch (e) {
-            console.log(e);
+          } catch {
             resultRef.current.innerText = "";
           }
         }

@@ -1,7 +1,3 @@
-import * as React from "react";
-import { Helmet } from "react-helmet-async";
-
-import CssBaseline from "@mui/material/CssBaseline";
 import {
   Container,
   Typography,
@@ -14,14 +10,16 @@ import {
   Switch,
   Button,
 } from "@mui/material";
+import CssBaseline from "@mui/material/CssBaseline";
 import { styled } from "@mui/system";
-
 import TileLayer from "ol/layer/Tile";
-import XYZ from "ol/source/XYZ";
-
 import { fromLonLat } from "ol/proj";
-import { useOl } from "~/hooks/useOl";
+import XYZ from "ol/source/XYZ";
+import * as React from "react";
+import { Helmet } from "react-helmet-async";
+
 import { useDnDSort, DnDSortEvent } from "~/hooks/useDnDSort";
+import { useOl } from "~/hooks/useOl";
 
 const StyledUl = styled("ul")({
   listStyle: "none",
@@ -154,7 +152,7 @@ const Order = (): React.ReactElement => {
     mode: "topbottom",
     drop: (draged, hovered) => {
       if (draged.index !== hovered.index)
-        setLayerConfs(prevList => {
+        setLayerConfs((prevList) => {
           if (
             hovered.index < 0 ||
             draged.index < 0 ||
@@ -185,9 +183,9 @@ const Order = (): React.ReactElement => {
 
   const removeLayer = React.useCallback(
     (id: string) => {
-      setLayerConfs(layerConfs => {
+      setLayerConfs((layerConfs) => {
         const newLayerConfs = [...layerConfs];
-        const index = newLayerConfs.findIndex(layerConf => {
+        const index = newLayerConfs.findIndex((layerConf) => {
           return id === layerConf.id;
         });
         const target = newLayerConfs[index];
@@ -252,7 +250,7 @@ const Order = (): React.ReactElement => {
               </Grid>
               <Grid item xs={3}>
                 <StyledUl>
-                  {layerList.items.map(item => {
+                  {layerList.items.map((item) => {
                     return (
                       <li ref={item.ref} {...item.trigger} key={item.key}>
                         <Panel

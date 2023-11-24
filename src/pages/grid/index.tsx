@@ -1,14 +1,14 @@
+import CssBaseline from "@mui/material/CssBaseline";
+import ImageTile from "ol/ImageTile";
+import TileLayer from "ol/layer/WebGLTile";
+import { register } from "ol/proj/proj4";
+import { XYZ } from "ol/source";
+import Tile from "ol/Tile";
+import TileGrid from "ol/tilegrid/TileGrid";
+import proj4 from "proj4";
 import * as React from "react";
 import { Helmet } from "react-helmet-async";
-import CssBaseline from "@mui/material/CssBaseline";
-import TileGrid from "ol/tilegrid/TileGrid";
-import Tile from "ol/Tile";
-import { XYZ } from "ol/source";
-import TileLayer from "ol/layer/WebGLTile";
-import ImageTile from "ol/ImageTile";
 
-import proj4 from "proj4";
-import { register } from "ol/proj/proj4";
 import { useOl } from "~/hooks/useOl";
 proj4.defs(
   "EPSG:3995",
@@ -23,10 +23,10 @@ for (let i = 0; i < 14; ++i) {
 }
 
 const Grid = (): React.ReactElement => {
-  const view4326_1 = useOl({
+  const view4326of1 = useOl({
     projection: "EPSG:4326",
   });
-  const view4326_2 = useOl({
+  const view4326of2 = useOl({
     projection: "EPSG:4326",
   });
   const view3857 = useOl();
@@ -66,7 +66,7 @@ const Grid = (): React.ReactElement => {
   );
 
   React.useEffect(() => {
-    if (view4326_1.map) {
+    if (view4326of1.map) {
       const tileGrid = new TileGrid({
         extent: [-180, -90, 180, 90],
         tileSize: size,
@@ -81,12 +81,12 @@ const Grid = (): React.ReactElement => {
           transition: 0,
         }),
       });
-      view4326_1.map.addLayer(layer);
+      view4326of1.map.addLayer(layer);
     }
-  }, [view4326_1.map, tileLoadFunction]);
+  }, [view4326of1.map, tileLoadFunction]);
 
   React.useEffect(() => {
-    if (view4326_2.map) {
+    if (view4326of2.map) {
       const layer = new TileLayer({
         source: new XYZ({
           url: "{z},{x},{y}",
@@ -94,9 +94,9 @@ const Grid = (): React.ReactElement => {
           transition: 0,
         }),
       });
-      view4326_2.map.addLayer(layer);
+      view4326of2.map.addLayer(layer);
     }
-  }, [view4326_2.map, tileLoadFunction]);
+  }, [view4326of2.map, tileLoadFunction]);
 
   React.useEffect(() => {
     if (view3857.map) {
@@ -168,7 +168,7 @@ const Grid = (): React.ReactElement => {
       </Helmet>
       <h1>view EPSG:4326, grid EPSG:4326</h1>
       <div
-        ref={view4326_1.ref}
+        ref={view4326of1.ref}
         style={{
           width: "720px",
           height: "360px",
@@ -177,7 +177,7 @@ const Grid = (): React.ReactElement => {
       />
       <h1>view EPSG:4326, grid EPSG:3857</h1>
       <div
-        ref={view4326_2.ref}
+        ref={view4326of2.ref}
         style={{
           width: "720px",
           height: "360px",
