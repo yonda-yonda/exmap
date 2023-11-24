@@ -1,6 +1,3 @@
-import * as React from "react";
-import { useForm, SubmitHandler, Controller } from "react-hook-form";
-import { Helmet } from "react-helmet-async";
 import {
   Stack,
   Button,
@@ -19,15 +16,16 @@ import {
   MenuItem,
   Typography,
 } from "@mui/material";
-
 import {
   fromBlob,
   TypedArrayWithDimensions,
   TypedArray,
   GeoTIFFImage,
 } from "geotiff";
-
 import cv, { Point } from "opencv-ts";
+import * as React from "react";
+import { Helmet } from "react-helmet-async";
+import { useForm, SubmitHandler, Controller } from "react-hook-form";
 
 function getDataRange(
   image: GeoTIFFImage
@@ -192,7 +190,7 @@ const FileSelect = (props: FileSelectProps): React.ReactElement => {
   );
 
   const onSubmit: SubmitHandler<FileInput> = React.useCallback(
-    data => {
+    (data) => {
       loadHead(data.files);
     },
     [loadHead]
@@ -206,13 +204,13 @@ const FileSelect = (props: FileSelectProps): React.ReactElement => {
             {...register("files", {
               required: true,
               validate: {
-                length: f => f instanceof FileList && f.length === 1,
+                length: (f) => f instanceof FileList && f.length === 1,
               },
             })}
             disabled={loading}
             accept=".tif, .tiff"
             type="file"
-            onChange={event => {
+            onChange={(event) => {
               if (event.target.files) loadHead(event.target.files);
             }}
           />
@@ -249,6 +247,7 @@ const StaticsItem = (props: { statics: StaticValue }): React.ReactElement => {
       const rate = 2;
       const histImageSize = [rate * bins, bins];
       const max = Math.max(...Array.from(statics.hist));
+      // eslint-disable-next-line new-cap
       const dst = new cv.Mat.zeros(
         histImageSize[1],
         histImageSize[0],
@@ -298,7 +297,7 @@ const StaticsItem = (props: { statics: StaticValue }): React.ReactElement => {
       drawElement.appendChild(canvas);
     }
   }, [statics]);
-  ////
+  /// /
   return (
     <Stack spacing={2}>
       <Box>
@@ -351,10 +350,10 @@ const ReadConfig = (props: ReadConfigProps): React.ReactElement => {
       new Set(
         watcher.bands
           .split(",")
-          .map(v => {
+          .map((v) => {
             return parseInt(v);
           })
-          .filter(v => !isNaN(v))
+          .filter((v) => !isNaN(v))
       )
     );
     const WARNING_PIXEL_SIZE = 4800 * 4800 * 3;
@@ -374,7 +373,7 @@ const ReadConfig = (props: ReadConfigProps): React.ReactElement => {
   }, [watcher]);
 
   const onSubmit: SubmitHandler<ReadInput> = React.useCallback(
-    data => {
+    (data) => {
       setValue(null);
       setError("");
 
@@ -425,10 +424,10 @@ const ReadConfig = (props: ReadConfigProps): React.ReactElement => {
         new Set(
           data.bands
             .split(",")
-            .map(v => {
+            .map((v) => {
               return parseInt(v);
             })
-            .filter(v => !isNaN(v))
+            .filter((v) => !isNaN(v))
         )
       );
       const minBand = Math.min(...bands);
@@ -456,7 +455,7 @@ const ReadConfig = (props: ReadConfigProps): React.ReactElement => {
           const start1 = new Date();
           const rasters = await tiffValue.image.readRasters({
             window: [x[0], y[0], x[1], y[1]],
-            samples: bands.map(v => {
+            samples: bands.map((v) => {
               return v - 1;
             }),
           });
@@ -520,7 +519,7 @@ const ReadConfig = (props: ReadConfigProps): React.ReactElement => {
           const type = tiffValue.range[2];
           if (type !== null) {
             const start2 = new Date();
-            values.forEach(v => {
+            values.forEach((v) => {
               calcurated.push(
                 calc(v, size, type, [tiffValue.range[0], tiffValue.range[1]])
               );
@@ -865,19 +864,19 @@ const Draw = (props: DrawProps): React.ReactElement => {
   });
 
   const onSubmit: SubmitHandler<DrawInput> = React.useCallback(
-    data => {
+    (data) => {
       setError("");
 
       const r = parseInt(data.r);
       const g = parseInt(data.g);
       const b = parseInt(data.b);
-      const rData = readResult.values.find(v => {
+      const rData = readResult.values.find((v) => {
         return v.band === r;
       })?.data;
-      const gData = readResult.values.find(v => {
+      const gData = readResult.values.find((v) => {
         return v.band === g;
       })?.data;
-      const bData = readResult.values.find(v => {
+      const bData = readResult.values.find((v) => {
         return v.band === b;
       })?.data;
       if (!rData) {
@@ -973,7 +972,7 @@ const Draw = (props: DrawProps): React.ReactElement => {
                     error={invalid}
                     disabled={loading}
                   >
-                    {readResult.values.map(v => {
+                    {readResult.values.map((v) => {
                       return (
                         <MenuItem key={v.band} value={v.band}>
                           {v.band}
@@ -1004,7 +1003,7 @@ const Draw = (props: DrawProps): React.ReactElement => {
                     error={invalid}
                     disabled={loading}
                   >
-                    {readResult.values.map(v => {
+                    {readResult.values.map((v) => {
                       return (
                         <MenuItem key={v.band} value={v.band}>
                           {v.band}
@@ -1035,7 +1034,7 @@ const Draw = (props: DrawProps): React.ReactElement => {
                     error={invalid}
                     disabled={loading}
                   >
-                    {readResult.values.map(v => {
+                    {readResult.values.map((v) => {
                       return (
                         <MenuItem key={v.band} value={v.band}>
                           {v.band}
@@ -1195,10 +1194,10 @@ const Index = (): React.ReactElement => {
             <Box>
               <FileSelect
                 loading={loading}
-                setLoading={loading => {
+                setLoading={(loading) => {
                   setLoading(loading);
                 }}
-                setValue={value => {
+                setValue={(value) => {
                   setReadResult(null);
                   setTiffValue(value);
                 }}

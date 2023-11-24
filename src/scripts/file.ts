@@ -1,4 +1,4 @@
-export const download = (data: string, fileName: string, fileType: string) => {
+export const download = (data: string, fileName: string, fileType: string): void => {
   const blob = new Blob([data], { type: fileType });
   const a = document.createElement("a");
   a.download = fileName;

@@ -1,16 +1,17 @@
-import * as React from "react";
-import { Link as GatsbyLink } from "gatsby";
-import { Helmet } from "react-helmet-async";
-import CssBaseline from "@mui/material/CssBaseline";
-import { Container, Paper, Typography, Stack, Link } from "@mui/material";
 import CategoryIcon from "@mui/icons-material/Category";
-import ContentCutIcon from "@mui/icons-material/ContentCut";
 import ColorizeIcon from "@mui/icons-material/Colorize";
+import ContentCutIcon from "@mui/icons-material/ContentCut";
 import EqualizerIcon from "@mui/icons-material/Equalizer";
-import LayersIcon from "@mui/icons-material/Layers";
+import GridOnIcon from "@mui/icons-material/GridOn";
 import InsertPhotoIcon from "@mui/icons-material/InsertPhoto";
-import CloudDownloadIcon from "@mui/icons-material/CloudDownload";
+import LayersIcon from "@mui/icons-material/Layers";
+import SatelliteAltIcon from "@mui/icons-material/SatelliteAlt";
+import { Container, Paper, Typography, Stack, Link } from "@mui/material";
+import CssBaseline from "@mui/material/CssBaseline";
 import { styled } from "@mui/system";
+import * as React from "react";
+import { Helmet } from "react-helmet-async";
+import { Link as RouterLink } from "react-router-dom";
 
 const StyledPaper = styled(Paper)({
   display: "flex",
@@ -67,7 +68,7 @@ const Index = (): React.ReactElement => {
               Contents
             </Typography>
             <Stack mt={1} direction="row" spacing={2}>
-              <GatsbyLink
+              <RouterLink
                 to="/transform"
                 style={{ color: "inherit", textDecoration: "inherit" }}
               >
@@ -80,8 +81,8 @@ const Index = (): React.ReactElement => {
                   <CategoryIcon />
                   <span>Transform</span>
                 </StyledPaper>
-              </GatsbyLink>
-              <GatsbyLink
+              </RouterLink>
+              <RouterLink
                 to="/simplify"
                 style={{ color: "inherit", textDecoration: "inherit" }}
               >
@@ -94,22 +95,8 @@ const Index = (): React.ReactElement => {
                   <ContentCutIcon />
                   <span>Simplify</span>
                 </StyledPaper>
-              </GatsbyLink>
-              <GatsbyLink
-                to="/geotiff"
-                style={{ color: "inherit", textDecoration: "inherit" }}
-              >
-                <StyledPaper
-                  variant="outlined"
-                  sx={{
-                    padding: 1,
-                  }}
-                >
-                  <CloudDownloadIcon />
-                  <span>Remote GeoTIFF</span>
-                </StyledPaper>
-              </GatsbyLink>
-              <GatsbyLink
+              </RouterLink>
+              <RouterLink
                 to="/picker"
                 style={{ color: "inherit", textDecoration: "inherit" }}
               >
@@ -122,8 +109,8 @@ const Index = (): React.ReactElement => {
                   <ColorizeIcon />
                   <span>Picker</span>
                 </StyledPaper>
-              </GatsbyLink>
-              <GatsbyLink
+              </RouterLink>
+              <RouterLink
                 to="/order"
                 style={{ color: "inherit", textDecoration: "inherit" }}
               >
@@ -136,8 +123,8 @@ const Index = (): React.ReactElement => {
                   <LayersIcon />
                   <span>Order</span>
                 </StyledPaper>
-              </GatsbyLink>
-              <GatsbyLink
+              </RouterLink>
+              <RouterLink
                 to="/picture"
                 style={{ color: "inherit", textDecoration: "inherit" }}
               >
@@ -150,8 +137,22 @@ const Index = (): React.ReactElement => {
                   <InsertPhotoIcon />
                   <span>Image</span>
                 </StyledPaper>
-              </GatsbyLink>
-              <GatsbyLink
+              </RouterLink>
+              <RouterLink
+                to="/grid"
+                style={{ color: "inherit", textDecoration: "inherit" }}
+              >
+                <StyledPaper
+                  variant="outlined"
+                  sx={{
+                    padding: 1,
+                  }}
+                >
+                  <GridOnIcon />
+                  <span>Grid smaple</span>
+                </StyledPaper>
+              </RouterLink>
+              <RouterLink
                 to="/univar"
                 style={{ color: "inherit", textDecoration: "inherit" }}
               >
@@ -164,7 +165,21 @@ const Index = (): React.ReactElement => {
                   <EqualizerIcon />
                   <span>Statics</span>
                 </StyledPaper>
-              </GatsbyLink>
+              </RouterLink>
+              <RouterLink
+                to="/satellite"
+                style={{ color: "inherit", textDecoration: "inherit" }}
+              >
+                <StyledPaper
+                  variant="outlined"
+                  sx={{
+                    padding: 1,
+                  }}
+                >
+                  <SatelliteAltIcon />
+                  <span>Satellite Position</span>
+                </StyledPaper>
+              </RouterLink>
             </Stack>
           </section>
           <section>

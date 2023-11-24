@@ -1,6 +1,4 @@
-import * as React from "react";
-import { Helmet } from "react-helmet-async";
-import CssBaseline from "@mui/material/CssBaseline";
+import FileDownloadIcon from "@mui/icons-material/FileDownload";
 import {
   Container,
   Typography,
@@ -18,22 +16,31 @@ import {
   FormHelperText,
   InputAdornment,
 } from "@mui/material";
+import CssBaseline from "@mui/material/CssBaseline";
 import { useTheme } from "@mui/material/styles";
 import useMediaQuery from "@mui/material/useMediaQuery";
-import FileDownloadIcon from "@mui/icons-material/FileDownload";
-import { useForm, SubmitHandler, Controller } from "react-hook-form";
-import { scroller } from "react-scroll";
+import { styled } from "@mui/system";
+import { utils, simplify } from "geo4326";
 import { View } from "ol";
+import OlFeature from "ol/Feature";
 import OlGeoJSON from "ol/format/GeoJSON";
 import VectorLayer from "ol/layer/Vector";
-import VectorSource from "ol/source/Vector";
 import { get as getProjection } from "ol/proj";
 import { register } from "ol/proj/proj4";
+import VectorSource from "ol/source/Vector";
 import proj4 from "proj4";
-import { utils, simplify } from "geo4326";
+import * as React from "react";
+import { Helmet } from "react-helmet-async";
+import { useForm, SubmitHandler, Controller } from "react-hook-form";
+import { scroller } from "react-scroll";
+
 import type { Polygon } from "geojson";
 
+import ImageRdp from "~/assets/rdp.png";
+import sampleGeoJSON from "~/assets/simplify_sample.json";
+import ImageVw from "~/assets/vw.png";
 import { useOl } from "~/hooks/useOl";
+import { download } from "~/scripts/file";
 import {
   parsedLinearRing,
   getPolygon,
@@ -41,10 +48,6 @@ import {
   FeatureWithCRS,
   GeoJSONWithCRS,
 } from "~/scripts/geojson";
-import { download } from "~/scripts/file";
-import sampleGeoJSON from "~/assets/simplify_sample.json";
-import ImageRdp from "~/assets/rdp.png";
-import ImageVw from "~/assets/vw.png";
 
 type Input = {
   code: string;
@@ -58,8 +61,6 @@ type Input = {
 type SimplifyError = {
   type: "code" | "coordinates" | "simplify" | "display";
 };
-
-import { styled } from "@mui/system";
 
 const SampleImage = styled("div")({
   background: "white",
@@ -180,7 +181,7 @@ const Simplify = (): React.ReactElement => {
         }).readFeature({
           type: "Polygon",
           coordinates: [coordinates],
-        });
+        }) as OlFeature;
         source.addFeature(feature);
         const extent = feature.getGeometry()?.getExtent();
         extent &&
@@ -192,13 +193,12 @@ const Simplify = (): React.ReactElement => {
         setInputLength(coordinates.length);
       } catch {
         setInputLength(null);
-        return;
       }
     }
   }, [rawInput, preview.map]);
 
   const onSubmit: SubmitHandler<Input> = React.useCallback(
-    data => {
+    (data) => {
       if (distLayer.current) {
         const source = distLayer.current.getSource();
         source.clear();
@@ -253,10 +253,10 @@ const Simplify = (): React.ReactElement => {
             properties: { name: `urn:ogc:def:crs:EPSG::${code}` },
           };
         }
-        const xs = polygon.coordinates[0].map(v => {
+        const xs = polygon.coordinates[0].map((v) => {
           return v[0];
         });
-        const ys = polygon.coordinates[0].map(v => {
+        const ys = polygon.coordinates[0].map((v) => {
           return v[1];
         });
         feature.bbox = [
@@ -472,8 +472,8 @@ const Simplify = (): React.ReactElement => {
                         rules={{
                           required: true,
                           validate: {
-                            parse: data => !!parsedLinearRing(data),
-                            selfintersection: data => {
+                            parse: (data) => !!parsedLinearRing(data),
+                            selfintersection: (data) => {
                               const points = parsedLinearRing(data);
                               return points
                                 ? !utils.selfintersection(points)
@@ -681,48 +681,50 @@ const Simplify = (): React.ReactElement => {
             </form>
           </section>
 
-          {simplified && (
-            <section id="result">
-              <Typography variant="h4" component="h2" sx={{ mb: 2 }}>
-                Output
-              </Typography>
-              <Grid container spacing={2}>
-                <Grid item xs={12} md={5}>
-                  <TextField
-                    fullWidth
-                    multiline
-                    label="GeoJSON"
-                    rows={12}
-                    value={JSON.stringify(simplified, null, 2)}
-                  />
-                  <Button
-                    variant="outlined"
-                    startIcon={<FileDownloadIcon />}
-                    onClick={exportFile}
-                    size="small"
-                    sx={{ mt: 1 }}
-                  >
-                    Export
-                  </Button>
+          <div id="result">
+            {simplified && (
+              <section>
+                <Typography variant="h4" component="h2" sx={{ mb: 2 }}>
+                  Output
+                </Typography>
+                <Grid container spacing={2}>
+                  <Grid item xs={12} md={5}>
+                    <TextField
+                      fullWidth
+                      multiline
+                      label="GeoJSON"
+                      rows={12}
+                      value={JSON.stringify(simplified, null, 2)}
+                    />
+                    <Button
+                      variant="outlined"
+                      startIcon={<FileDownloadIcon />}
+                      onClick={exportFile}
+                      size="small"
+                      sx={{ mt: 1 }}
+                    >
+                      Export
+                    </Button>
+                  </Grid>
+                  <Grid item xs={12} md={7}>
+                    <div
+                      ref={result.ref}
+                      style={{
+                        width: "100%",
+                        height: "320px",
+                      }}
+                    />
+                    {Array.isArray(simplified.geometry.coordinates[0]) && (
+                      <Typography>
+                        Simplified: {simplified.geometry.coordinates[0].length}{" "}
+                        points.
+                      </Typography>
+                    )}
+                  </Grid>
                 </Grid>
-                <Grid item xs={12} md={7}>
-                  <div
-                    ref={result.ref}
-                    style={{
-                      width: "100%",
-                      height: "320px",
-                    }}
-                  />
-                  {Array.isArray(simplified.geometry.coordinates[0]) && (
-                    <Typography>
-                      Simplified: {simplified.geometry.coordinates[0].length}{" "}
-                      points.
-                    </Typography>
-                  )}
-                </Grid>
-              </Grid>
-            </section>
-          )}
+              </section>
+            )}
+          </div>
         </Stack>
       </Container>
     </>

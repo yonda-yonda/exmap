@@ -1,6 +1,4 @@
-import * as React from "react";
-import { Helmet } from "react-helmet-async";
-import CssBaseline from "@mui/material/CssBaseline";
+import FileDownloadIcon from "@mui/icons-material/FileDownload";
 import {
   Container,
   Typography,
@@ -15,30 +13,34 @@ import {
   FormHelperText,
   InputAdornment,
 } from "@mui/material";
+import CssBaseline from "@mui/material/CssBaseline";
 import { useTheme } from "@mui/material/styles";
 import useMediaQuery from "@mui/material/useMediaQuery";
-import FileDownloadIcon from "@mui/icons-material/FileDownload";
-import { useForm, SubmitHandler, Controller } from "react-hook-form";
-import { scroller } from "react-scroll";
+import { utils, transform } from "geo4326";
 import { View } from "ol";
+import OlFeature from "ol/Feature";
 import OlGeoJSON from "ol/format/GeoJSON";
 import VectorLayer from "ol/layer/Vector";
-import VectorSource from "ol/source/Vector";
 import { get as getProjection } from "ol/proj";
 import { register } from "ol/proj/proj4";
+import VectorSource from "ol/source/Vector";
 import proj4 from "proj4";
-import { utils, transform } from "geo4326";
+import * as React from "react";
+import { Helmet } from "react-helmet-async";
+import { useForm, SubmitHandler, Controller } from "react-hook-form";
+import { scroller } from "react-scroll";
+
 import type { Feature } from "geojson";
 
+import sampleGeoJSON from "~/assets/transform_sample.json";
 import { useOl } from "~/hooks/useOl";
+import { download } from "~/scripts/file";
 import {
   parsedLinearRing,
   getPolygon,
   getEPSGcode,
   GeoJSONWithCRS,
 } from "~/scripts/geojson";
-import { download } from "~/scripts/file";
-import sampleGeoJSON from "~/assets/transform_sample.json";
 
 type Input = {
   code: string;
@@ -160,7 +162,7 @@ const Transform = (): React.ReactElement => {
         }).readFeature({
           type: "Polygon",
           coordinates: [coordinates],
-        });
+        }) as OlFeature;
         source.addFeature(feature);
         const polygon = feature.getGeometry()?.getExtent();
         polygon &&
@@ -168,14 +170,12 @@ const Transform = (): React.ReactElement => {
             padding: [40, 20, 40, 20],
             maxZoom: 20,
           });
-      } catch {
-        return;
-      }
+      } catch {}
     }
   }, [rawInput, preview.map]);
 
   const onSubmit: SubmitHandler<Input> = React.useCallback(
-    data => {
+    (data) => {
       if (distLayer.current) {
         const source = distLayer.current.getSource();
         source.clear();
@@ -399,8 +399,8 @@ const Transform = (): React.ReactElement => {
                       rules={{
                         required: true,
                         validate: {
-                          parse: data => !!parsedLinearRing(data),
-                          selfintersection: data => {
+                          parse: (data) => !!parsedLinearRing(data),
+                          selfintersection: (data) => {
                             const points = parsedLinearRing(data);
                             return points
                               ? !utils.selfintersection(points)
@@ -535,42 +535,44 @@ const Transform = (): React.ReactElement => {
             </form>
           </section>
 
-          {transformed && (
-            <section id="result">
-              <Typography variant="h4" component="h2" sx={{ mb: 2 }}>
-                Output
-              </Typography>
-              <Grid container spacing={2}>
-                <Grid item xs={12} md={5}>
-                  <TextField
-                    fullWidth
-                    multiline
-                    label="GeoJSON of EPSG:4326"
-                    rows={12}
-                    value={JSON.stringify(transformed, null, 2)}
-                  />
-                  <Button
-                    variant="outlined"
-                    startIcon={<FileDownloadIcon />}
-                    onClick={exportFile}
-                    size="small"
-                    sx={{ mt: 1 }}
-                  >
-                    Export
-                  </Button>
+          <div id="result">
+            {transformed && (
+              <section>
+                <Typography variant="h4" component="h2" sx={{ mb: 2 }}>
+                  Output
+                </Typography>
+                <Grid container spacing={2}>
+                  <Grid item xs={12} md={5}>
+                    <TextField
+                      fullWidth
+                      multiline
+                      label="GeoJSON of EPSG:4326"
+                      rows={12}
+                      value={JSON.stringify(transformed, null, 2)}
+                    />
+                    <Button
+                      variant="outlined"
+                      startIcon={<FileDownloadIcon />}
+                      onClick={exportFile}
+                      size="small"
+                      sx={{ mt: 1 }}
+                    >
+                      Export
+                    </Button>
+                  </Grid>
+                  <Grid item xs={12} md={7}>
+                    <div
+                      ref={result.ref}
+                      style={{
+                        width: "100%",
+                        height: "340px",
+                      }}
+                    />
+                  </Grid>
                 </Grid>
-                <Grid item xs={12} md={7}>
-                  <div
-                    ref={result.ref}
-                    style={{
-                      width: "100%",
-                      height: "340px",
-                    }}
-                  />
-                </Grid>
-              </Grid>
-            </section>
-          )}
+              </section>
+            )}
+          </div>
         </Stack>
       </Container>
     </>

@@ -1,8 +1,3 @@
-import * as React from "react";
-import { Helmet } from "react-helmet-async";
-import { useForm, SubmitHandler, Controller } from "react-hook-form";
-import CssBaseline from "@mui/material/CssBaseline";
-import { join } from "path-browserify";
 import {
   Container,
   Typography,
@@ -17,19 +12,22 @@ import {
   FormControlLabel,
   FormHelperText,
 } from "@mui/material";
+import CssBaseline from "@mui/material/CssBaseline";
 import { styled } from "@mui/system";
-
+import { utils } from "geo4326";
 import { Map } from "ol";
-import SourceState from "ol/source/State";
+import MousePosition from "ol/control/MousePosition";
 import TileLayer from "ol/layer/Tile";
 import { get as getProjection, transformExtent } from "ol/proj";
-import MousePosition from "ol/control/MousePosition";
-import proj4 from "proj4";
-import { useOl } from "~/hooks/useOl";
-import { useDnDSort } from "~/hooks/useDnDSort";
 import { register as olRegister } from "ol/proj/proj4";
-import { utils } from "geo4326";
+import { join } from "path-browserify";
+import proj4 from "proj4";
+import * as React from "react";
+import { Helmet } from "react-helmet-async";
+import { useForm, SubmitHandler, Controller } from "react-hook-form";
 
+import { useDnDSort } from "~/hooks/useDnDSort";
+import { useOl } from "~/hooks/useOl";
 import { ImageGrid } from "~/scripts/ImageGrid";
 
 const CodeStatus = styled("div")({
@@ -151,7 +149,7 @@ const Viewer = (): React.ReactElement => {
           const crs = utils.getCrs(code);
           proj4.defs(code, crs);
         } catch {
-          setProjection(prev => {
+          setProjection((prev) => {
             prev.error = true;
             return {
               code: prev.code,
@@ -176,7 +174,7 @@ const Viewer = (): React.ReactElement => {
     mode: "topbottom",
     drop: (draged, hovered) => {
       if (draged.index !== hovered.index)
-        setLayerConfs(prevList => {
+        setLayerConfs((prevList) => {
           if (
             hovered.index < 0 ||
             draged.index < 0 ||
@@ -211,9 +209,9 @@ const Viewer = (): React.ReactElement => {
 
   const removeLayer = React.useCallback(
     (id: string) => {
-      setLayerConfs(layerConfs => {
+      setLayerConfs((layerConfs) => {
         const newLayerConfs = [...layerConfs];
-        const index = newLayerConfs.findIndex(layerConf => {
+        const index = newLayerConfs.findIndex((layerConf) => {
           return id === layerConf.id;
         });
         const target = newLayerConfs[index];
@@ -257,7 +255,7 @@ const Viewer = (): React.ReactElement => {
         olRegister(proj4);
       }
 
-      const extent = source.extent.split(",").map(v => Number(v));
+      const extent = source.extent.split(",").map((v) => Number(v));
       let name = "";
       let file: File | undefined;
       let url: string | undefined;
@@ -298,7 +296,7 @@ const Viewer = (): React.ReactElement => {
             source,
           });
           map.addLayer(layer);
-          setLayerConfs(layerConfs => {
+          setLayerConfs((layerConfs) => {
             return [
               ...layerConfs,
               {
@@ -328,18 +326,18 @@ const Viewer = (): React.ReactElement => {
           }
         };
 
-        if (sourceState === SourceState.READY) {
+        if (sourceState === "ready") {
           setting();
           setLoading(false);
         } else {
           const sourceListener = () => {
             const sourceState = source.getState();
-            if (sourceState === SourceState.ERROR) {
+            if (sourceState === "error") {
               source.removeEventListener("change", sourceListener);
               setError("FailedLoadSource");
               setLoading(false);
             }
-            if (sourceState === SourceState.READY) {
+            if (sourceState === "ready") {
               source.removeEventListener("change", sourceListener);
               setting();
               setLoading(false);
@@ -366,8 +364,8 @@ const Viewer = (): React.ReactElement => {
   }, [loading, reset]);
 
   const onSubmit: SubmitHandler<Input> = React.useCallback(
-    data => {
-      const extent = data.extent.split(",").map(v => Number(v));
+    (data) => {
+      const extent = data.extent.split(",").map((v) => Number(v));
 
       for (let i = 0; i < extent.length; i++) {
         const n = extent[i];
@@ -400,7 +398,7 @@ const Viewer = (): React.ReactElement => {
       const rotate = data.rotate.length > 0 ? data.rotate : 0;
       id += "," + rotate;
       if (id.length > 0) {
-        const index = layerConfs.findIndex(layerConf => {
+        const index = layerConfs.findIndex((layerConf) => {
           return id === layerConf.id;
         });
         if (index >= 0) {
@@ -435,7 +433,7 @@ const Viewer = (): React.ReactElement => {
 
     if (ol.map && positionRef.current) {
       mousePositionControl = new MousePosition({
-        coordinateFormat: coords => {
+        coordinateFormat: (coords) => {
           if (coords)
             return `lon: ${coords[0].toFixed(4)}, lat: ${coords[1].toFixed(4)}`;
           return "";
@@ -532,7 +530,7 @@ const Viewer = (): React.ReactElement => {
               <Grid item xs={3}>
                 {layerConfs.length > 0 ? (
                   <StyledUl>
-                    {layerList.items.map(item => {
+                    {layerList.items.map((item) => {
                       return (
                         <li key={item.key} ref={item.ref} {...item.trigger}>
                           <Stack
@@ -621,7 +619,8 @@ const Viewer = (): React.ReactElement => {
                       {...register("files", {
                         required: true,
                         validate: {
-                          length: f => f instanceof FileList && f.length === 1,
+                          length: (f) =>
+                            f instanceof FileList && f.length === 1,
                         },
                       })}
                       disabled={loading}
