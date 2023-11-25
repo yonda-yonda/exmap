@@ -1,0 +1,33 @@
+{
+  "files": {
+    "main.css": "/exmap/static/css/main.77df3681.css",
+    "main.js": "/exmap/static/js/main.48e7fa45.js",
+    "static/js/763.2901056f.chunk.js": "/exmap/static/js/763.2901056f.chunk.js",
+    "static/js/963.393e6f0e.chunk.js": "/exmap/static/js/963.393e6f0e.chunk.js",
+    "static/js/152.621f3325.chunk.js": "/exmap/static/js/152.621f3325.chunk.js",
+    "static/js/982.838d9c35.chunk.js": "/exmap/static/js/982.838d9c35.chunk.js",
+    "static/js/613.22eeb994.chunk.js": "/exmap/static/js/613.22eeb994.chunk.js",
+    "static/js/137.8464811c.chunk.js": "/exmap/static/js/137.8464811c.chunk.js",
+    "static/js/251.923ad975.chunk.js": "/exmap/static/js/251.923ad975.chunk.js",
+    "static/js/725.29e216f0.chunk.js": "/exmap/static/js/725.29e216f0.chunk.js",
+    "static/js/59.b488eaa7.chunk.js": "/exmap/static/js/59.b488eaa7.chunk.js",
+    "static/media/rdp.png": "/exmap/static/media/rdp.45bc757a123319e49697.png",
+    "static/media/vw.png": "/exmap/static/media/vw.b2b57b690aa31f714a83.png",
+    "index.html": "/exmap/index.html",
+    "main.77df3681.css.map": "/exmap/static/css/main.77df3681.css.map",
+    "main.48e7fa45.js.map": "/exmap/static/js/main.48e7fa45.js.map",
+    "763.2901056f.chunk.js.map": "/exmap/static/js/763.2901056f.chunk.js.map",
+    "963.393e6f0e.chunk.js.map": "/exmap/static/js/963.393e6f0e.chunk.js.map",
+    "152.621f3325.chunk.js.map": "/exmap/static/js/152.621f3325.chunk.js.map",
+    "982.838d9c35.chunk.js.map": "/exmap/static/js/982.838d9c35.chunk.js.map",
+    "613.22eeb994.chunk.js.map": "/exmap/static/js/613.22eeb994.chunk.js.map",
+    "137.8464811c.chunk.js.map": "/exmap/static/js/137.8464811c.chunk.js.map",
+    "251.923ad975.chunk.js.map": "/exmap/static/js/251.923ad975.chunk.js.map",
+    "725.29e216f0.chunk.js.map": "/exmap/static/js/725.29e216f0.chunk.js.map",
+    "59.b488eaa7.chunk.js.map": "/exmap/static/js/59.b488eaa7.chunk.js.map"
+  },
+  "entrypoints": [
+    "static/css/main.77df3681.css",
+    "static/js/main.48e7fa45.js"
+  ]
+}

@@ -1,2 +1,0 @@
-"use strict";(self.webpackChunkexmap=self.webpackChunkexmap||[]).push([[218],{90938:function(e,n,t){t.r(n);var a=t(67294),l=t(10532),r=t(85616),u=t(49308);n.default=function(){return a.createElement(a.Fragment,null,a.createElement(l.ZP,null),a.createElement(r.Z,null,a.createElement(u.Z,{variant:"h1",component:"h1"},"404")))}}}]);
-//# sourceMappingURL=component---src-pages-404-tsx-c1eec30b8eaa2ef88b7f.js.map
