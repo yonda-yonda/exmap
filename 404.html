@@ -1,19 +1,16 @@
 <!DOCTYPE html>
-<html>
-  <head>
+<html lang="en">
+  <head
+    prefix="og: http://ogp.me/ns# fb: http://ogp.me/ns/fb# article: http://ogp.me/ns/article#"
+  >
     <meta charset="utf-8" />
-    <title>404</title>
-    <script>
-      const SEGMENT_COUNT = 1;
-      const loc = window.location;
-      const origin = loc.origin; //=> https://yourname.github.io
-      const path = loc.href.substr(origin.length + 1); //=> repo-name/book/123
-      const segments = path.split("/"); //=> [repo-name, book, 123]
-      const repo = segments.slice(0, SEGMENT_COUNT).join("/"); //=> repo-name
-      const param = segments.slice(SEGMENT_COUNT).join("/"); //=> book/123
-      const url = origin + "/" + repo + "?p=" + encodeURIComponent(param);
-      loc.replace(url);
-    </script>
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="theme-color" content="#fff" />
+    <title>exmap</title>
   </head>
-  <body></body>
+
+  <body>
+    <noscript>You need to enable JavaScript to run this app.</noscript>
+    <div id="root"></div>
+  </body>
 </html>
