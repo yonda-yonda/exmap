@@ -24,6 +24,7 @@ import DatePicker from "react-datepicker";
 import { Helmet } from "react-helmet-async";
 import { useForm, SubmitHandler, Controller } from "react-hook-form";
 import { scroller } from "react-scroll";
+import { twoline2satrec } from "satellite.js";
 
 import "react-datepicker/dist/react-datepicker.css";
 import { useOl } from "~/hooks/useOl";
@@ -41,6 +42,13 @@ const parseTLE = (value: string): [string, string] => {
   if (lines.length > 2) line2 = lines[2];
   else if (lines.length > 1) line2 = lines[1];
   return [line1, line2];
+};
+
+const getSatName = (value: string): string => {
+  const lines = value.split(/\r\n|\n/).filter((v) => v.length > 0);
+
+  if (lines.length > 2) return lines[0];
+  return "";
 };
 
 const getStyle = (
@@ -129,11 +137,111 @@ const Viewer = (): React.ReactElement => {
   }>();
   const [errors, setErrors] = React.useState<string[]>([]);
 
-  const { control, handleSubmit, setValue } = useForm<Input>({
+  const { control, watch, handleSubmit, setValue } = useForm<Input>({
     mode: "onSubmit",
     criteriaMode: "all",
     defaultValues,
   });
+
+  const watchTLE = watch("tle");
+
+  const orbitalElements = React.useMemo(() => {
+    const [line1, line2] = parseTLE(watchTLE);
+    if (!validate(line1, line2)) return [];
+
+    const ret: {
+      key: string;
+      label: { ja: string; en: string };
+      value: string | number;
+      unit: string;
+    }[] = [];
+    const name = getSatName(watchTLE);
+    if (name.length > 0)
+      ret.push({
+        key: "name",
+        label: { ja: "衛星名", en: "Name" },
+        value: name,
+        unit: "",
+      });
+
+    const satrec = twoline2satrec(line1, line2);
+
+    ret.push({
+      key: "num",
+      label: { ja: "カタログ番号", en: "Number" },
+      value: satrec.satnum,
+      unit: "",
+    });
+    const year = satrec.epochyr;
+    const day = satrec.epochdays;
+    const epoch = new Date(
+      (year < 57 ? "20" : "19") + ("00" + year).slice(-2) + "-01-01T00:00:00Z"
+    );
+    epoch.setMilliseconds(day * 1000 * 60 * 60 * 24);
+    ret.push({
+      key: "epoch",
+      label: { ja: "元期", en: "Epoch" },
+      value: epoch.toISOString(),
+      unit: "",
+    });
+
+    ret.push({
+      key: "bstar",
+      label: { ja: "BStar", en: "BStar" },
+      value: String(satrec.bstar),
+      unit: "",
+    });
+    ret.push({
+      key: "inc",
+      label: { ja: "軌道傾斜角", en: "Inclination" },
+      value: ((satrec.inclo * 180) / Math.PI).toFixed(4),
+      unit: "deg",
+    });
+    ret.push({
+      key: "ran",
+      label: { ja: "昇交点赤径", en: "Right Ascension of Ascending Node" },
+      value: ((satrec.nodeo * 180) / Math.PI).toFixed(4),
+      unit: "deg",
+    });
+    ret.push({
+      key: "ecc",
+      label: { ja: "離心率", en: "Eccentricity" },
+      value: satrec.ecco,
+      unit: "",
+    });
+    ret.push({
+      key: "perigee",
+      label: { ja: "近地点離角", en: "Argument of Perigee" },
+      value: ((satrec.argpo * 180) / Math.PI).toFixed(4),
+      unit: "deg",
+    });
+    ret.push({
+      key: "ma",
+      label: { ja: "平均近点角", en: "Mean Anomaly" },
+      value: ((satrec.mo * 180) / Math.PI).toFixed(4),
+      unit: "deg",
+    });
+    ret.push({
+      key: "mo",
+      label: { ja: "平均運動", en: "Mean Motion" },
+      value: satrec.no,
+      unit: "",
+    });
+    return ret;
+  }, [watchTLE]);
+
+  React.useEffect(() => {
+    const epoch = orbitalElements.find((orbitalElement) => {
+      return orbitalElement.key === "epoch";
+    });
+    if (epoch) {
+      setValue("start", new Date(epoch.value));
+
+      const end = new Date(epoch.value);
+      end.setHours(end.getHours() + 6);
+      setValue("end", end);
+    }
+  }, [orbitalElements, setValue]);
 
   const sample = React.useCallback(() => {
     setValue(
@@ -141,8 +249,8 @@ const Viewer = (): React.ReactElement => {
       "SENTINEL-2A\n1 40697U 15028A   23330.11653598 -.00000027  00000+0  63838-5 0  9993\n2 40697  98.5636  42.2887 0000923  96.4386 263.6902 14.30826055440163"
     );
     setValue("fov", 20.6);
-    setValue("start", new Date("2023-11-26T15:00:00Z"));
-    setValue("end", new Date("2023-11-26T21:00:00Z"));
+    // setValue("start", new Date("2023-11-26T15:00:00Z"));
+    // setValue("end", new Date("2023-11-26T21:00:00Z"));
   }, [setValue]);
 
   React.useEffect(() => {
@@ -402,7 +510,7 @@ const Viewer = (): React.ReactElement => {
         </Typography>
         <form onSubmit={handleSubmit(onSubmit)}>
           <Grid container spacing={2}>
-            <Grid item xs={12}>
+            <Grid item md={8} xs={12}>
               <Stack spacing={1}>
                 <Box>
                   <Controller
@@ -576,15 +684,43 @@ const Viewer = (): React.ReactElement => {
                   />
                 </Box>
               </Stack>
-            </Grid>
-            <Grid item xs={12}>
-              <Box sx={{ mb: 4 }}>
+              <Box sx={{ my: 4 }}>
                 <Button variant="outlined" onClick={sample} size="small">
                   set sample
                 </Button>
               </Box>
+            </Grid>
+            <Grid item md={4} xs={12}>
+              {orbitalElements.map((orbitalElement) => {
+                return (
+                  <Box
+                    key={orbitalElement.key}
+                    component="dl"
+                    sx={{ margin: 0 }}
+                  >
+                    <Typography
+                      variant="subtitle2"
+                      component="dt"
+                      sx={{ borderBottom: "solid 1px" }}
+                    >
+                      {orbitalElement.label.ja}/{orbitalElement.label.en}
+                    </Typography>
+                    <Typography
+                      variant="subtitle2"
+                      component="dd"
+                      sx={{ marginBottom: "10px" }}
+                    >
+                      {orbitalElement.value}{" "}
+                      {orbitalElement.unit.length > 0 &&
+                        `[${orbitalElement.unit}]`}
+                    </Typography>
+                  </Box>
+                );
+              })}
+            </Grid>
+            <Grid item xs={12}>
               <Box>
-                <Button variant="contained" type="submit">
+                <Button variant="contained" type="submit" size="large">
                   Show
                 </Button>
               </Box>
