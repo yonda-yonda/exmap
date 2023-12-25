@@ -224,8 +224,8 @@ const Viewer = (): React.ReactElement => {
     ret.push({
       key: "mo",
       label: { ja: "平均運動", en: "Mean Motion" },
-      value: satrec.no,
-      unit: "",
+      value: satrec.no * (1440.0 / (2.0 * Math.PI)),
+      unit: "1/day",
     });
     return ret;
   }, [watchTLE]);
@@ -249,8 +249,6 @@ const Viewer = (): React.ReactElement => {
       "SENTINEL-2A\n1 40697U 15028A   23330.11653598 -.00000027  00000+0  63838-5 0  9993\n2 40697  98.5636  42.2887 0000923  96.4386 263.6902 14.30826055440163"
     );
     setValue("fov", 20.6);
-    // setValue("start", new Date("2023-11-26T15:00:00Z"));
-    // setValue("end", new Date("2023-11-26T21:00:00Z"));
   }, [setValue]);
 
   React.useEffect(() => {
