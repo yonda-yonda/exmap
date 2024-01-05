@@ -18,7 +18,7 @@ import { utils } from "geo4326";
 import { Map } from "ol";
 import MousePosition from "ol/control/MousePosition";
 import TileLayer from "ol/layer/Tile";
-import { get as getProjection, transformExtent } from "ol/proj";
+import { get as getProjection } from "ol/proj";
 import { register as olRegister } from "ol/proj/proj4";
 import { join } from "path-browserify";
 import proj4 from "proj4";
@@ -307,23 +307,6 @@ const Viewer = (): React.ReactElement => {
               },
             ];
           });
-
-          const originExtent = extent;
-          if (originExtent) {
-            const transformed = transformExtent(
-              originExtent,
-              code,
-              "EPSG:3857"
-            );
-
-            if (transformed[0] > transformed[2])
-              transformed[2] += proj4(code, "EPSG:3857", [180, 0])[0] * 2;
-
-            map.getView().fit(transformed, {
-              padding: [40, 20, 40, 20],
-              maxZoom: 20,
-            });
-          }
         };
 
         if (sourceState === "ready") {

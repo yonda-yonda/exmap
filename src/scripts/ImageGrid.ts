@@ -181,20 +181,21 @@ export class ImageGrid extends TileImage {
         const projection = getCachedProjection(options.projection);
         if (!projection) throw new Error("Unsupported projection");
 
-        let imageExtent = [Infinity, Infinity, -Infinity, -Infinity];
-        if (Array.isArray(options.imageExtent) && options.imageExtent.length > 3) {
-            imageExtent = options.imageExtent;
-        }
+        let imageExtent = options.imageExtent;
+        if (imageExtent.length < 4 ||
+            imageExtent[2] <= imageExtent[0] ||
+            imageExtent[3] <= imageExtent[1])
+            throw new Error("Unsupported extent");
         const originExtentAspectRatio =
             (imageExtent[2] - imageExtent[0]) / (imageExtent[3] - imageExtent[1]);
-        let gridExtent = imageExtent;
-        let gridExtentWidth = gridExtent[2] - gridExtent[0];
-        let gridExtentHeight = gridExtent[3] - gridExtent[1];
         let rad = 0;
         if (options.rotate) {
             rad = options.rotate;
             imageExtent = rotateExtent(imageExtent, rad);
         }
+        let gridExtent = imageExtent;
+        let gridExtentWidth = gridExtent[2] - gridExtent[0];
+        let gridExtentHeight = gridExtent[3] - gridExtent[1];
 
         const tileLoadFunction = (imageTile: Tile, coordString: string) => {
             const [z, x, y] = coordString.split(",").map(Number);
@@ -350,6 +351,8 @@ export class ImageGrid extends TileImage {
                     : null;
             if (globalGridExtent) {
                 gridExtent = globalGridExtent;
+                gridExtentWidth = gridExtent[2] - gridExtent[0];
+                gridExtentHeight = gridExtent[3] - gridExtent[1];
                 if (
                     imageExtent[0] < gridExtent[0] - gridExtentWidth / 2 ||
                     gridExtent[2] + gridExtentWidth / 2 < imageExtent[0] ||
@@ -363,9 +366,6 @@ export class ImageGrid extends TileImage {
                     imageExtent[0] - imageExtent[2] > gridExtentWidth
                 )
                     throw new Error("invalid extent.");
-
-                gridExtentWidth = gridExtent[2] - gridExtent[0];
-                gridExtentHeight = gridExtent[3] - gridExtent[1];
                 this.isGlobalGrid_ = true;
             }
         }
