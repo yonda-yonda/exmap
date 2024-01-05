@@ -179,13 +179,13 @@ export class ImageGrid extends TileImage {
             typeof options.maxWidth !== "undefined" ? options.maxWidth : 32767;
 
         const projection = getCachedProjection(options.projection);
-        if (!projection) throw new Error("Unsupported projection");
+        if (!projection) throw new Error("Unsupported projection.");
 
         let imageExtent = options.imageExtent;
         if (imageExtent.length < 4 ||
             imageExtent[2] <= imageExtent[0] ||
             imageExtent[3] <= imageExtent[1])
-            throw new Error("Unsupported extent");
+            throw new Error("invalid extent.");
         const originExtentAspectRatio =
             (imageExtent[2] - imageExtent[0]) / (imageExtent[3] - imageExtent[1]);
         let rad = 0;
@@ -451,7 +451,8 @@ export class ImageGrid extends TileImage {
             );
             const maxResolution =
                 Math.max(gridExtentWidth, gridExtentHeight) / tileSize;
-            const tileGrid = new TileGrid({
+
+            this.tileGrid = new TileGrid({
                 extent: gridExtent,
                 tileSize,
                 minZoom: options.minZoom,
@@ -462,31 +463,27 @@ export class ImageGrid extends TileImage {
                     sourceResolution,
                 }),
             });
-            if (tileGrid) {
-                this.tileGrid = tileGrid;
-                canvas.width = rotatedWidth;
-                canvas.height = rotatedHeight;
+            canvas.width = rotatedWidth;
+            canvas.height = rotatedHeight;
 
-                context.save();
-                context.translate(rotatedWidth / 2, rotatedHeight / 2);
-                context.rotate(-rad);
-                context.drawImage(
-                    image,
-                    0,
-                    0,
-                    image.width,
-                    image.height,
-                    -imageWidth / 2,
-                    -imageHeight / 2,
-                    imageWidth,
-                    imageHeight
-                );
-                context.restore();
+            context.save();
+            context.translate(rotatedWidth / 2, rotatedHeight / 2);
+            context.rotate(-rad);
+            context.drawImage(
+                image,
+                0,
+                0,
+                image.width,
+                image.height,
+                -imageWidth / 2,
+                -imageHeight / 2,
+                imageWidth,
+                imageHeight
+            );
+            context.restore();
 
-                this.setState("ready");
-            } else {
-                this.setState("error");
-            }
+            this.setState("ready");
+
         });
         image.addEventListener("error", () => {
             if (options.file) URL.revokeObjectURL(url);
