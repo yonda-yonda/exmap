@@ -6,7 +6,6 @@
   "scripts": {
     "start": "PORT=3000 craco start",
     "build": "craco build",
-    "server": "node server.js",
     "eject": "react-scripts eject",
     "lint:es": "eslint 'src/**/*.{js,tsx,ts,tsx}'",
     "lint:css": "stylelint 'src/**/*.{js,tsx,ts,tsx}'",
