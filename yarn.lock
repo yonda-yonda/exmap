@@ -7373,7 +7373,7 @@ __metadata:
     eslint-plugin-n: ^15.5.1
     eslint-plugin-prettier: ^4.2.1
     eslint-plugin-promise: ^6.1.1
-    geo4326: ^1.6.1
+    geo4326: 1.7.0-alpha.0
     geotiff: ^2.1.0
     gh-pages: ^6.1.0
     jest: ^29.7.0
@@ -7913,16 +7913,16 @@ __metadata:
   languageName: node
   linkType: hard
 
-"geo4326@npm:^1.6.1":
-  version: 1.6.1
-  resolution: "geo4326@npm:1.6.1"
+"geo4326@npm:1.7.0-alpha.0":
+  version: 1.7.0-alpha.0
+  resolution: "geo4326@npm:1.7.0-alpha.0"
   dependencies:
     "@types/geojson": ^7946.0.8
     "@types/proj4": ^2.5.2
     epsg-index: ^1.2.0
     proj4: ^2.9.1
     satellite.js: ^5.0.0
-  checksum: 8f7330cb40732e2a8f93d354a4af500b1e39638c12104aa9b3abb53a92235b4fcaa6f73d9fd5fe11c956628361efb842bcd6250fc3f1d57ede27bcc6063589cc
+  checksum: f795c77781496e662dd50982b71a2b088342cc4d8d78d247c755d981e18e08413426b3b6010be763bc26fdcfd8f173f97a65bb01b542489eda21f92cab126d85
   languageName: node
   linkType: hard
 

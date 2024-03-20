@@ -101,7 +101,8 @@ type Input = {
   tle: string;
   start: Date;
   end: Date;
-  fov: number;
+  fov: string;
+  offnadir: number;
 };
 
 const now = new Date();
@@ -114,7 +115,8 @@ const defaultValues = {
   tle: "",
   start,
   end,
-  fov: 0,
+  fov: "0",
+  offnadir: 0,
 };
 
 const Viewer = (): React.ReactElement => {
@@ -127,7 +129,8 @@ const Viewer = (): React.ReactElement => {
     start: Date;
     end: Date;
     tle: [string, string];
-    fov: number;
+    fov: number[];
+    offnadir: number;
   }>();
   const [currentDate, setCurrentDate] = React.useState<Date>();
   const [sliderConfig, setSliderConfig] = React.useState<{
@@ -248,7 +251,8 @@ const Viewer = (): React.ReactElement => {
       "tle",
       "SENTINEL-2A\n1 40697U 15028A   23330.11653598 -.00000027  00000+0  63838-5 0  9993\n2 40697  98.5636  42.2887 0000923  96.4386 263.6902 14.30826055440163"
     );
-    setValue("fov", 20.6);
+    setValue("fov", "20.6");
+    setValue("offnadir", 0);
   }, [setValue]);
 
   React.useEffect(() => {
@@ -311,11 +315,14 @@ const Viewer = (): React.ReactElement => {
   const onSubmit: SubmitHandler<Input> = React.useCallback((data) => {
     const [line1, line2] = parseTLE(data.tle);
     setErrors([]);
+
+    const fov = data.fov.split(",").map((v) => Number(v) / 2);
     conditionRef.current = {
       start: data.start,
       end: data.end,
       tle: [line1, line2],
-      fov: Number(data.fov),
+      fov,
+      offnadir: Number(data.offnadir),
     };
     setCurrentDate(data.start);
 
@@ -361,7 +368,7 @@ const Viewer = (): React.ReactElement => {
       const source = accessAreaLayerRef.current.getSource();
       if (source) {
         source.clear();
-        if (conditionRef.current.fov > 0) {
+        if (fov.length > 0) {
           try {
             source.addFeature(
               new OlGeoJSON({
@@ -377,14 +384,19 @@ const Viewer = (): React.ReactElement => {
                       conditionRef.current.start,
                       conditionRef.current.end,
                       {
-                        roll: conditionRef.current.fov / 2,
+                        roll: [
+                          conditionRef.current.offnadir +
+                            conditionRef.current.fov[0],
+                          conditionRef.current.offnadir -
+                            conditionRef.current.fov[0],
+                        ],
                       }
                     )
                     .map((c) => [c]),
                 },
               }) as Feature
             );
-          } catch {
+          } catch (e) {
             setErrors((prev) => {
               return [...prev, "ACCESS_AREA"];
             });
@@ -415,7 +427,8 @@ const Viewer = (): React.ReactElement => {
                 currentDate
               ),
             });
-            if (conditionRef.current.fov > 0) {
+            const fov = conditionRef.current.fov;
+            if (fov.length > 0) {
               geometries.push({
                 type: "Polygon",
                 coordinates: [
@@ -425,9 +438,12 @@ const Viewer = (): React.ReactElement => {
                     currentDate,
                     {
                       fov: [
-                        conditionRef.current.fov / 2,
-                        conditionRef.current.fov / 2,
+                        conditionRef.current.fov[0],
+                        fov.length > 1
+                          ? conditionRef.current.fov[1]
+                          : conditionRef.current.fov[0],
                       ],
+                      offnadir: conditionRef.current.offnadir,
                     }
                   ),
                 ],
@@ -653,30 +669,60 @@ const Viewer = (): React.ReactElement => {
                         />
                         {error?.type === "pattern" && (
                           <FormHelperText sx={{ mx: 0 }}>
-                            must be number.
+                            must be positive number.
+                            <br />
+                            正数を入力してください。
+                          </FormHelperText>
+                        )}
+                      </FormControl>
+                    )}
+                    rules={{
+                      pattern: /(?:\d+\.?\d*|\.\d+)+(,\s*(?:\d+\.?\d*|\.\d+))*/,
+                    }}
+                  />
+                </Box>
+                <Box pt={2} sx={{ zIndex: 0 }}>
+                  <Controller
+                    control={control}
+                    name="offnadir"
+                    render={({ field, fieldState: { invalid, error } }) => (
+                      <FormControl
+                        component="fieldset"
+                        error={invalid}
+                        fullWidth
+                      >
+                        <TextField
+                          {...field}
+                          size="small"
+                          label="Offnadir angle [deg]"
+                          error={invalid}
+                        />
+                        {error?.type === "pattern" && (
+                          <FormHelperText sx={{ mx: 0 }}>
+                            must be positive number.
                             <br />
                             数値を入力してください。
                           </FormHelperText>
                         )}
                         {error?.type === "min" && (
                           <FormHelperText sx={{ mx: 0 }}>
-                            must be greater than or equal to 0.
+                            must be greater than -90.
                             <br />
-                            0以上の数値を入力してください。
+                            -90より大きい数値を入力してください。
                           </FormHelperText>
                         )}
                         {error?.type === "max" && (
                           <FormHelperText sx={{ mx: 0 }}>
                             must be must be less than 90.
                             <br />
-                            90以下の数値を入力してください。
+                            90より小さい数値を入力してください。
                           </FormHelperText>
                         )}
                       </FormControl>
                     )}
                     rules={{
                       pattern: /[+-]?(?:\d+\.?\d*|\.\d+)/,
-                      min: 0,
+                      min: -90,
                       max: 90,
                     }}
                   />
