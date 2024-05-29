@@ -358,7 +358,10 @@ const Viewer = (): React.ReactElement => {
           );
         } catch {
           setErrors((prev) => {
-            return [...prev, "SUB_SATELLITE_TRACK"];
+            if (!prev.includes("SUB_SATELLITE_TRACK")) {
+              return [...prev, "SUB_SATELLITE_TRACK"];
+            }
+            return prev;
           });
         }
       }
@@ -398,7 +401,10 @@ const Viewer = (): React.ReactElement => {
             );
           } catch (e) {
             setErrors((prev) => {
-              return [...prev, "ACCESS_AREA"];
+              if (!prev.includes("ACCESS_AREA")) {
+                return [...prev, "ACCESS_AREA"];
+              }
+              return prev;
             });
           }
         }
@@ -417,8 +423,9 @@ const Viewer = (): React.ReactElement => {
         const source = footprintLayerRef.current.getSource();
         if (source) {
           source.clear();
+
+          const geometries: Geometry[] = [];
           try {
-            const geometries: Geometry[] = [];
             geometries.push({
               type: "Point",
               coordinates: satellite.nadir(
@@ -427,6 +434,16 @@ const Viewer = (): React.ReactElement => {
                 currentDate
               ),
             });
+          } catch {
+            setErrors((prev) => {
+              if (!prev.includes("NADIR")) {
+                return [...prev, "NADIR"];
+              }
+              return prev;
+            });
+          }
+
+          try {
             const fov = conditionRef.current.fov;
             if (fov.length > 0) {
               geometries.push({
@@ -437,29 +454,13 @@ const Viewer = (): React.ReactElement => {
                     conditionRef.current.tle[1],
                     currentDate,
                     {
-                      fov: [
-                        conditionRef.current.fov[0],
-                        fov.length > 1
-                          ? conditionRef.current.fov[1]
-                          : conditionRef.current.fov[0],
-                      ],
+                      fov: [fov[0], fov.length > 1 ? fov[1] : fov[0]],
                       offnadir: conditionRef.current.offnadir,
                     }
                   ),
                 ],
               });
             }
-            source.addFeature(
-              new OlGeoJSON({
-                featureProjection: "EPSG:4326",
-              }).readFeature({
-                type: "Feature",
-                geometry: {
-                  type: "GeometryCollection",
-                  geometries,
-                },
-              }) as Feature
-            );
           } catch {
             setErrors((prev) => {
               if (!prev.includes("FOOTPRINT")) {
@@ -468,6 +469,17 @@ const Viewer = (): React.ReactElement => {
               return prev;
             });
           }
+          source.addFeature(
+            new OlGeoJSON({
+              featureProjection: "EPSG:4326",
+            }).readFeature({
+              type: "Feature",
+              geometry: {
+                type: "GeometryCollection",
+                geometries,
+              },
+            }) as Feature
+          );
         }
       }
       if (terminatorLayerRef.current) {
@@ -792,7 +804,7 @@ const Viewer = (): React.ReactElement => {
                 valueLabelDisplay="on"
                 min={sliderConfig?.min}
                 max={sliderConfig?.max}
-                defaultValue={currentDate?.getTime()}
+                value={currentDate?.getTime()}
                 step={1000 * 60}
                 onChange={(_: Event, newValue: number | number[]) => {
                   if (!Array.isArray(newValue))
@@ -803,6 +815,13 @@ const Viewer = (): React.ReactElement => {
             {errors.length > 0 && (
               <Box>
                 <FormControl error={true}>
+                  {errors.includes("NADIR") && (
+                    <FormHelperText sx={{ mx: 0 }}>
+                      failed calcurating nadir.
+                      <br />
+                      直下点の計算に失敗しました。
+                    </FormHelperText>
+                  )}
                   {errors.includes("FOOTPRINT") && (
                     <FormHelperText sx={{ mx: 0 }}>
                       failed calcurating footprint.
