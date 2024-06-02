@@ -172,8 +172,13 @@ const Viewer = (): React.ReactElement => {
       value: satrec.satnum,
       unit: "",
     });
+
+    // https://celestrak.org/columns/v04n03/
+    // 98001.00000000 -> 1998-01-01T00:00:00.000Z
+    // 98000.00000000 -> 1997-12-31T00:00:00.000Z
+    // 98001.50000000 -> 1998-01-01T12:00:00.000Z
     const year = satrec.epochyr;
-    const day = satrec.epochdays;
+    const day = satrec.epochdays - 1;
     const epoch = new Date(
       (year < 57 ? "20" : "19") + ("00" + year).slice(-2) + "-01-01T00:00:00Z"
     );
