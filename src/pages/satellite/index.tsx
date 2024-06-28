@@ -5,13 +5,12 @@ import {
   Typography,
   Stack,
   Grid,
-  Tooltip,
   TextField,
   FormControl,
   FormHelperText,
 } from "@mui/material";
 import CssBaseline from "@mui/material/CssBaseline";
-import Slider, { SliderValueLabelProps } from "@mui/material/Slider";
+import Slider from "@mui/material/Slider";
 import { satellite, terminator } from "geo4326";
 import { Geometry } from "geojson";
 import Feature from "ol/Feature";
@@ -447,8 +446,8 @@ const Viewer = (): React.ReactElement => {
             });
           }
 
+          const fov = conditionRef.current.fov;
           try {
-            const fov = conditionRef.current.fov;
             if (fov.length > 0) {
               geometries.push({
                 type: "Polygon",
@@ -467,7 +466,11 @@ const Viewer = (): React.ReactElement => {
             }
           } catch {
             setErrors((prev) => {
-              if (!prev.includes("FOOTPRINT")) {
+              const sum = fov.reduce((sum, element) => {
+                return sum + element;
+              }, 0);
+
+              if (sum !== 0 && !prev.includes("FOOTPRINT")) {
                 return [...prev, "FOOTPRINT"];
               }
               return prev;
@@ -489,7 +492,6 @@ const Viewer = (): React.ReactElement => {
       if (terminatorLayerRef.current) {
         const source = terminatorLayerRef.current.getSource();
         if (source) {
-          console.log(JSON.stringify(terminator.night(currentDate)));
           source.clear();
           source.addFeature(
             new OlGeoJSON({
@@ -824,10 +826,7 @@ const Viewer = (): React.ReactElement => {
             <Box sx={{ mt: 1 }}>
               <Slider
                 key={(sliderConfig?.inited || new Date()).toISOString()}
-                slots={{
-                  valueLabel: ValueLabelComponent,
-                }}
-                valueLabelDisplay="on"
+                valueLabelDisplay="off"
                 min={sliderConfig?.min}
                 max={sliderConfig?.max}
                 value={currentDate?.getTime()}
@@ -838,6 +837,7 @@ const Viewer = (): React.ReactElement => {
                 }}
               />
             </Box>
+            {currentDate && <Box>{new Date(currentDate).toISOString()}</Box>}
             {errors.length > 0 && (
               <Box>
                 <FormControl error={true}>
@@ -879,17 +879,3 @@ const Viewer = (): React.ReactElement => {
   );
 };
 export default Viewer;
-
-function ValueLabelComponent(props: SliderValueLabelProps) {
-  const { children, value } = props;
-
-  return (
-    <Tooltip
-      enterTouchDelay={0}
-      placement="top"
-      title={new Date(value).toISOString()}
-    >
-      {children}
-    </Tooltip>
-  );
-}
