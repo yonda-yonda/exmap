@@ -12,7 +12,7 @@ import {
 } from "@mui/material";
 import CssBaseline from "@mui/material/CssBaseline";
 import Slider, { SliderValueLabelProps } from "@mui/material/Slider";
-import { satellite } from "geo4326";
+import { satellite, terminator } from "geo4326";
 import { Geometry } from "geojson";
 import Feature from "ol/Feature";
 import OlGeoJSON from "ol/format/GeoJSON";
@@ -28,7 +28,6 @@ import { twoline2satrec } from "satellite.js";
 
 import "react-datepicker/dist/react-datepicker.css";
 import { useOl } from "~/hooks/useOl";
-import { calculate } from "~/scripts/terminator";
 import { validate } from "~/scripts/tle";
 
 const parseTLE = (value: string): [string, string] => {
@@ -490,11 +489,33 @@ const Viewer = (): React.ReactElement => {
       if (terminatorLayerRef.current) {
         const source = terminatorLayerRef.current.getSource();
         if (source) {
+          console.log(JSON.stringify(terminator.night(currentDate)));
           source.clear();
           source.addFeature(
             new OlGeoJSON({
               featureProjection: "EPSG:4326",
-            }).readFeature(calculate({ date: currentDate })) as Feature
+            }).readFeature(terminator.night(currentDate)) as Feature
+          );
+          source.addFeature(
+            new OlGeoJSON({
+              featureProjection: "EPSG:4326",
+            }).readFeature(
+              terminator.night(currentDate, { elevation: "civil" })
+            ) as Feature
+          );
+          source.addFeature(
+            new OlGeoJSON({
+              featureProjection: "EPSG:4326",
+            }).readFeature(
+              terminator.night(currentDate, { elevation: "nautical" })
+            ) as Feature
+          );
+          source.addFeature(
+            new OlGeoJSON({
+              featureProjection: "EPSG:4326",
+            }).readFeature(
+              terminator.night(currentDate, { elevation: "astronomical" })
+            ) as Feature
           );
         }
       }
