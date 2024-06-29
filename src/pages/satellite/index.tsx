@@ -57,13 +57,15 @@ const getStyle = (
     stroke?: boolean;
     fill?: boolean;
     image?: boolean;
+    opacity?: number;
   }
 ): Style => {
-  const { stroke, fill, image } = Object.assign(
+  const { stroke, fill, image, opacity } = Object.assign(
     {
       stroke: true,
       fill: true,
       image: true,
+      opacity: 0.2,
     },
     options
   );
@@ -77,7 +79,7 @@ const getStyle = (
       : undefined,
     fill: fill
       ? new Fill({
-          color: `rgba(${r}, ${g}, ${b}, 0.2)`,
+          color: `rgba(${r}, ${g}, ${b}, ${opacity})`,
         })
       : undefined,
     image: image
@@ -294,6 +296,7 @@ const Viewer = (): React.ReactElement => {
         style: getStyle(0, 0, 0, {
           stroke: false,
           image: false,
+          opacity: 0.1,
         }),
       });
     }
