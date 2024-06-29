@@ -392,9 +392,9 @@ const Viewer = (): React.ReactElement => {
                       {
                         roll: [
                           conditionRef.current.offnadir +
-                            conditionRef.current.fov[0],
+                            conditionRef.current.fov[0] / 2,
                           conditionRef.current.offnadir -
-                            conditionRef.current.fov[0],
+                            conditionRef.current.fov[0] / 2,
                         ],
                       }
                     )
