@@ -566,7 +566,7 @@ const Viewer = (): React.ReactElement => {
           Draw Satellite Position
         </Typography>
         <form onSubmit={handleSubmit(onSubmit)}>
-          <Grid container spacing={2}>
+          <Grid container spacing={2} sx={{ mb: 2 }}>
             <Grid item md={8} xs={12}>
               <Stack spacing={1}>
                 <Box>
