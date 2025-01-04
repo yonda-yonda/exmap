@@ -102,7 +102,7 @@ type Input = {
   start: Date;
   end: Date;
   fov: string;
-  offnadir: number;
+  offnadir: string;
 };
 
 const now = new Date();
@@ -116,7 +116,7 @@ const defaultValues = {
   start,
   end,
   fov: "0",
-  offnadir: 0,
+  offnadir: "0",
 };
 
 const Viewer = (): React.ReactElement => {
@@ -125,18 +125,20 @@ const Viewer = (): React.ReactElement => {
   const accessAreaLayerRef = React.useRef<VectorLayer<VectorSource>>();
   const footprintLayerRef = React.useRef<VectorLayer<VectorSource>>();
   const terminatorLayerRef = React.useRef<VectorLayer<VectorSource>>();
-  const conditionRef = React.useRef<{
-    start: Date;
-    end: Date;
-    tle: [string, string];
-    fov: number[];
-    offnadir: number;
-  }>();
+  const conditionRef = React.useRef<
+    {
+      id: string;
+      start: Date;
+      end: Date;
+      tle: [string, string];
+      fov: number[];
+      offnadir: number[];
+    }[]
+  >([]);
   const [currentDate, setCurrentDate] = React.useState<Date>();
   const [sliderConfig, setSliderConfig] = React.useState<{
     min: number;
     max: number;
-    inited: Date;
   }>();
   const [errors, setErrors] = React.useState<string[]>([]);
 
@@ -145,6 +147,8 @@ const Viewer = (): React.ReactElement => {
     criteriaMode: "all",
     defaultValues,
   });
+
+  const [showResult, setShowResult] = React.useState(false);
 
   const watchTLE = watch("tle");
 
@@ -257,7 +261,7 @@ const Viewer = (): React.ReactElement => {
       "SENTINEL-2A\n1 40697U 15028A   23330.11653598 -.00000027  00000+0  63838-5 0  9993\n2 40697  98.5636  42.2887 0000923  96.4386 263.6902 14.30826055440163"
     );
     setValue("fov", "20.6");
-    setValue("offnadir", 0);
+    setValue("offnadir", "0");
   }, [setValue]);
 
   React.useEffect(() => {
@@ -322,29 +326,50 @@ const Viewer = (): React.ReactElement => {
     const [line1, line2] = parseTLE(data.tle);
     setErrors([]);
 
-    const fov = data.fov.split(",").map((v) => Number(v) / 2);
-    conditionRef.current = {
+    setShowResult(true);
+    const fov = data.fov
+      .split(",")
+      .map((v) => Number(v) / 2)
+      .slice(0, 2);
+    const offnadir = data.offnadir
+      .split(",")
+      .map((v) => Number(v))
+      .slice(0, 2);
+
+    const id = data.tle + data.fov + data.offnadir;
+    if (conditionRef.current.find((v) => v.id === id)) {
+      setErrors((prev) => {
+        if (!prev.includes("DUPLICATE")) {
+          return [...prev, "DUPLICATE"];
+        }
+        return prev;
+      });
+      return;
+    }
+
+    conditionRef.current.push({
+      id,
       start: data.start,
       end: data.end,
       tle: [line1, line2],
       fov,
-      offnadir: Number(data.offnadir),
-    };
-    setCurrentDate(data.start);
+      offnadir,
+    });
 
     const maxMiliSec = data.end.getTime();
     const minMiliSec = data.start.getTime();
-    setSliderConfig({
-      min: minMiliSec,
-      max: maxMiliSec,
-      inited: new Date(),
+    setSliderConfig((prev) => {
+      return {
+        min: Math.min(minMiliSec, prev?.min || Infinity),
+        max: Math.max(maxMiliSec, prev?.max || -Infinity),
+      };
     });
+
+    setCurrentDate(data.start);
 
     if (subSatelliteTrackLayerRef.current) {
       const source = subSatelliteTrackLayerRef.current.getSource();
       if (source) {
-        source.clear();
-
         try {
           source.addFeature(
             new OlGeoJSON({
@@ -354,10 +379,10 @@ const Viewer = (): React.ReactElement => {
               geometry: {
                 type: "MultiLineString",
                 coordinates: satellite.subSatelliteTrack(
-                  conditionRef.current.tle[0],
-                  conditionRef.current.tle[1],
-                  conditionRef.current.start,
-                  conditionRef.current.end
+                  line1,
+                  line2,
+                  data.start,
+                  data.end
                 ),
               },
             }) as Feature
@@ -376,9 +401,18 @@ const Viewer = (): React.ReactElement => {
     if (accessAreaLayerRef.current) {
       const source = accessAreaLayerRef.current.getSource();
       if (source) {
-        source.clear();
         if (fov.length > 0) {
           try {
+            const coordinates = offnadir
+              .map((v) => {
+                return satellite
+                  .accessArea(line1, line2, data.start, data.end, {
+                    roll: [v + fov[0] / 2, v - fov[0] / 2],
+                  })
+                  .map((c) => [c]);
+              })
+              .flat();
+
             source.addFeature(
               new OlGeoJSON({
                 featureProjection: "EPSG:4326",
@@ -386,22 +420,7 @@ const Viewer = (): React.ReactElement => {
                 type: "Feature",
                 geometry: {
                   type: "MultiPolygon",
-                  coordinates: satellite
-                    .accessArea(
-                      conditionRef.current.tle[0],
-                      conditionRef.current.tle[1],
-                      conditionRef.current.start,
-                      conditionRef.current.end,
-                      {
-                        roll: [
-                          conditionRef.current.offnadir +
-                            conditionRef.current.fov[0] / 2,
-                          conditionRef.current.offnadir -
-                            conditionRef.current.fov[0] / 2,
-                        ],
-                      }
-                    )
-                    .map((c) => [c]),
+                  coordinates,
                 },
               }) as Feature
             );
@@ -424,61 +443,62 @@ const Viewer = (): React.ReactElement => {
   }, []);
 
   React.useEffect(() => {
-    if (currentDate && conditionRef.current) {
+    if (currentDate && conditionRef.current.length > 0) {
       if (footprintLayerRef.current) {
         const source = footprintLayerRef.current.getSource();
         if (source) {
           source.clear();
 
           const geometries: Geometry[] = [];
-          try {
-            geometries.push({
-              type: "Point",
-              coordinates: satellite.nadir(
-                conditionRef.current.tle[0],
-                conditionRef.current.tle[1],
-                currentDate
-              ),
-            });
-          } catch {
-            setErrors((prev) => {
-              if (!prev.includes("NADIR")) {
-                return [...prev, "NADIR"];
-              }
-              return prev;
-            });
-          }
 
-          const fov = conditionRef.current.fov;
-          try {
-            if (fov.length > 0) {
+          conditionRef.current.forEach((condition) => {
+            try {
               geometries.push({
-                type: "Polygon",
-                coordinates: [
-                  satellite.footprint(
-                    conditionRef.current.tle[0],
-                    conditionRef.current.tle[1],
-                    currentDate,
-                    {
-                      fov: [fov[0], fov.length > 1 ? fov[1] : fov[0]],
-                      offnadir: conditionRef.current.offnadir,
-                    }
-                  ),
-                ],
+                type: "Point",
+                coordinates: satellite.nadir(
+                  condition.tle[0],
+                  condition.tle[1],
+                  currentDate
+                ),
+              });
+            } catch {
+              setErrors((prev) => {
+                if (!prev.includes("NADIR")) {
+                  return [...prev, "NADIR"];
+                }
+                return prev;
               });
             }
-          } catch {
-            setErrors((prev) => {
-              const sum = fov.reduce((sum, element) => {
-                return sum + element;
-              }, 0);
 
-              if (sum !== 0 && !prev.includes("FOOTPRINT")) {
-                return [...prev, "FOOTPRINT"];
+            const fov = condition.fov;
+            try {
+              if (fov.length > 0) {
+                const tle = condition.tle;
+                condition.offnadir.forEach((offnadir) => {
+                  geometries.push({
+                    type: "Polygon",
+                    coordinates: [
+                      satellite.footprint(tle[0], tle[1], currentDate, {
+                        fov: [fov[0], fov.length > 1 ? fov[1] : fov[0]],
+                        offnadir,
+                      }),
+                    ],
+                  });
+                });
               }
-              return prev;
-            });
-          }
+            } catch {
+              setErrors((prev) => {
+                const sum = fov.reduce((sum, element) => {
+                  return sum + element;
+                }, 0);
+
+                if (sum !== 0 && !prev.includes("FOOTPRINT")) {
+                  return [...prev, "FOOTPRINT"];
+                }
+                return prev;
+              });
+            }
+          });
           source.addFeature(
             new OlGeoJSON({
               featureProjection: "EPSG:4326",
@@ -526,6 +546,17 @@ const Viewer = (): React.ReactElement => {
       }
     }
   }, [currentDate]);
+
+  const reset = React.useCallback(() => {
+    setShowResult(false);
+    setCurrentDate(undefined);
+    setSliderConfig(undefined);
+    conditionRef.current = [];
+    terminatorLayerRef.current?.getSource()?.clear();
+    footprintLayerRef.current?.getSource()?.clear();
+    accessAreaLayerRef.current?.getSource()?.clear();
+    subSatelliteTrackLayerRef.current?.getSource()?.clear();
+  }, []);
 
   return (
     <>
@@ -720,7 +751,7 @@ const Viewer = (): React.ReactElement => {
                       </FormControl>
                     )}
                     rules={{
-                      pattern: /(?:\d+\.?\d*|\.\d+)+(,\s*(?:\d+\.?\d*|\.\d+))*/,
+                      pattern: /^(\d*\.?\d*)(,\s*(\d+\.?\d*)*)*$/,
                     }}
                   />
                 </Box>
@@ -742,19 +773,19 @@ const Viewer = (): React.ReactElement => {
                         />
                         {error?.type === "pattern" && (
                           <FormHelperText sx={{ mx: 0 }}>
-                            must be positive number.
+                            must be number.
                             <br />
                             数値を入力してください。
                           </FormHelperText>
                         )}
-                        {error?.type === "min" && (
+                        {error?.types?.min && (
                           <FormHelperText sx={{ mx: 0 }}>
                             must be greater than -90.
                             <br />
                             -90より大きい数値を入力してください。
                           </FormHelperText>
                         )}
-                        {error?.type === "max" && (
+                        {error?.types?.max && (
                           <FormHelperText sx={{ mx: 0 }}>
                             must be must be less than 90.
                             <br />
@@ -764,9 +795,31 @@ const Viewer = (): React.ReactElement => {
                       </FormControl>
                     )}
                     rules={{
-                      pattern: /[+-]?(?:\d+\.?\d*|\.\d+)/,
-                      min: -90,
-                      max: 90,
+                      pattern: /^-?(\d*\.?\d*)(,\s*-?(\d*\.?\d*)*)*$/,
+                      validate: {
+                        min: (v) => {
+                          return (
+                            v
+                              .split(",")
+                              .slice(0, 2)
+                              .map((v) => Number(v))
+                              .filter((v) => {
+                                return v < -90;
+                              }).length === 0
+                          );
+                        },
+                        max: (v) => {
+                          return (
+                            v
+                              .split(",")
+                              .slice(0, 2)
+                              .map((v) => Number(v))
+                              .filter((v) => {
+                                return v > 90;
+                              }).length === 0
+                          );
+                        },
+                      },
                     }}
                   />
                 </Box>
@@ -806,17 +859,22 @@ const Viewer = (): React.ReactElement => {
               })}
             </Grid>
             <Grid item xs={12}>
-              <Box>
+              <Stack spacing={2} direction="row">
                 <Button variant="contained" type="submit" size="large">
                   Show
                 </Button>
-              </Box>
+                {showResult && (
+                  <Button variant="outlined" size="large" onClick={reset}>
+                    Reset
+                  </Button>
+                )}
+              </Stack>
             </Grid>
           </Grid>
         </form>
 
         <div id="result">
-          <Box my={4} style={{ display: currentDate ? "block" : "none" }}>
+          <Box my={4} style={{ display: showResult ? "block" : "none" }}>
             <Box style={{ position: "relative" }}>
               <div
                 ref={ol.ref}
@@ -826,21 +884,23 @@ const Viewer = (): React.ReactElement => {
                 }}
               />
             </Box>
-            <Box sx={{ mt: 1 }}>
-              <Slider
-                key={(sliderConfig?.inited || new Date()).toISOString()}
-                valueLabelDisplay="off"
-                min={sliderConfig?.min}
-                max={sliderConfig?.max}
-                value={currentDate?.getTime()}
-                step={1000 * 60}
-                onChange={(_: Event, newValue: number | number[]) => {
-                  if (!Array.isArray(newValue))
-                    setCurrentDate(new Date(newValue));
-                }}
-              />
-            </Box>
-            {currentDate && <Box>{new Date(currentDate).toISOString()}</Box>}
+            {currentDate && (
+              <Box sx={{ mt: 1 }}>
+                <Slider
+                  key={new Date().toDateString()}
+                  valueLabelDisplay="off"
+                  min={sliderConfig?.min}
+                  max={sliderConfig?.max}
+                  value={currentDate.getTime()}
+                  step={1000 * 60}
+                  onChange={(_: Event, newValue: number | number[]) => {
+                    if (!Array.isArray(newValue))
+                      setCurrentDate(new Date(newValue));
+                  }}
+                />
+                <Box>{new Date(currentDate).toISOString()}</Box>
+              </Box>
+            )}
             {errors.length > 0 && (
               <Box>
                 <FormControl error={true}>
@@ -870,6 +930,13 @@ const Viewer = (): React.ReactElement => {
                       failed calcurating subsatellite track.
                       <br />
                       軌跡の計算に失敗しました。
+                    </FormHelperText>
+                  )}
+                  {errors.includes("DUPLICATE") && (
+                    <FormHelperText sx={{ mx: 0 }}>
+                      duplicated satellite information.
+                      <br />
+                      衛星の情報が重複しています。
                     </FormHelperText>
                   )}
                 </FormControl>
