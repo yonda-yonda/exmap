@@ -12,10 +12,15 @@ import {
 import CssBaseline from "@mui/material/CssBaseline";
 import Slider from "@mui/material/Slider";
 import { satellite, terminator } from "geo4326";
-import { Geometry } from "geojson";
 import Feature from "ol/Feature";
 import OlGeoJSON from "ol/format/GeoJSON";
+import MultiLineString from "ol/geom/MultiLineString";
+import MultiPolygon from "ol/geom/MultiPolygon";
+import Point from "ol/geom/Point";
+import Polygon from "ol/geom/Polygon";
 import VectorLayer from "ol/layer/Vector";
+import MapBrowserEvent from "ol/MapBrowserEvent";
+import Overlay from "ol/Overlay";
 import VectorSource from "ol/source/Vector";
 import { Circle as CircleStyle, Fill, Stroke, Style } from "ol/style";
 import * as React from "react";
@@ -28,6 +33,18 @@ import { twoline2satrec } from "satellite.js";
 import "react-datepicker/dist/react-datepicker.css";
 import { useOl } from "~/hooks/useOl";
 import { validate } from "~/scripts/tle";
+
+type Color = {
+  r: number;
+  g: number;
+  b: number;
+};
+
+const colors: Color[] = [
+  { r: 255, g: 0, b: 0 },
+  { r: 0, g: 255, b: 0 },
+  { r: 0, g: 0, b: 255 },
+];
 
 const parseTLE = (value: string): [string, string] => {
   const lines = value.split(/\r\n|\n/).filter((v) => v.length > 0);
@@ -121,18 +138,22 @@ const defaultValues = {
 
 const Viewer = (): React.ReactElement => {
   const ol = useOl({ projection: "EPSG:4326" });
+  const counterRef = React.useRef(0);
   const subSatelliteTrackLayerRef = React.useRef<VectorLayer<VectorSource>>();
   const accessAreaLayerRef = React.useRef<VectorLayer<VectorSource>>();
   const footprintLayerRef = React.useRef<VectorLayer<VectorSource>>();
   const terminatorLayerRef = React.useRef<VectorLayer<VectorSource>>();
+  const tagOverlayRef = React.useRef<Overlay>();
   const conditionRef = React.useRef<
     {
       id: string;
+      name: string;
       start: Date;
       end: Date;
       tle: [string, string];
       fov: number[];
       offnadir: number[];
+      color: Color;
     }[]
   >([]);
   const [currentDate, setCurrentDate] = React.useState<Date>();
@@ -179,7 +200,6 @@ const Viewer = (): React.ReactElement => {
       value: satrec.satnum,
       unit: "",
     });
-
     // https://celestrak.org/columns/v04n03/
     // 98001.00000000 -> 1998-01-01T00:00:00.000Z
     // 98000.00000000 -> 1997-12-31T00:00:00.000Z
@@ -270,7 +290,6 @@ const Viewer = (): React.ReactElement => {
         source: new VectorSource<Feature>({
           features: [],
         }),
-        style: getStyle(0, 0, 255),
       });
     }
     if (!subSatelliteTrackLayerRef.current) {
@@ -278,17 +297,12 @@ const Viewer = (): React.ReactElement => {
         source: new VectorSource<Feature>({
           features: [],
         }),
-        style: getStyle(255, 0, 0),
       });
     }
     if (!accessAreaLayerRef.current) {
       accessAreaLayerRef.current = new VectorLayer({
         source: new VectorSource<Feature>({
           features: [],
-        }),
-        style: getStyle(255, 0, 0, {
-          stroke: false,
-          image: false,
         }),
       });
     }
@@ -310,6 +324,53 @@ const Viewer = (): React.ReactElement => {
     ol.map?.addLayer(subSatelliteTrackLayerRef.current);
     ol.map?.addLayer(footprintLayerRef.current);
 
+    if (tagOverlayRef.current) ol.map?.removeOverlay(tagOverlayRef.current);
+    const tagElement = new DOMParser().parseFromString(
+      `<div style="
+        margin: 0 0 0 16px;
+        transform: translate(0, -50%);
+        text-align: center;
+        font-size: 10px;
+        padding: 2px 4px;
+        background-color: rgba(255, 255, 255);
+        position: absolute;
+        white-space: nowrap;
+        pointer-events: none;"></div>`,
+      "text/html"
+    ).body.firstChild as HTMLElement;
+    tagOverlayRef.current = new Overlay({
+      element: tagElement,
+    });
+    ol.map?.addOverlay(tagOverlayRef.current);
+    const moved = (evt: MapBrowserEvent<UIEvent>) => {
+      if (evt.dragging) {
+        return;
+      }
+      if (!tagOverlayRef.current) {
+        return;
+      }
+      const pixel = ol.map?.getEventPixel(evt.originalEvent);
+      if (pixel && footprintLayerRef.current) {
+        footprintLayerRef.current.getFeatures(pixel).then((features) => {
+          // The array will either contain the topmost feature when a hit was detected, or it will be empty.
+          const name = features[0]?.getProperties()?.name;
+
+          if (name) {
+            const element = tagOverlayRef.current?.getElement();
+            if (element) element.innerHTML = name;
+            tagOverlayRef.current?.setPosition(evt.coordinate);
+          } else {
+            tagOverlayRef.current?.setPosition(undefined);
+            const element = tagOverlayRef.current?.getElement();
+            if (element) element.innerHTML = "";
+          }
+        });
+      }
+    };
+
+    tagOverlayRef.current?.setPosition(undefined);
+    ol.map?.on("pointermove", moved);
+
     return () => {
       if (subSatelliteTrackLayerRef.current)
         ol.map?.removeLayer(subSatelliteTrackLayerRef.current);
@@ -319,6 +380,8 @@ const Viewer = (): React.ReactElement => {
         ol.map?.removeLayer(footprintLayerRef.current);
       if (terminatorLayerRef.current)
         ol.map?.removeLayer(terminatorLayerRef.current);
+
+      ol.map?.un("pointermove", moved);
     };
   }, [ol.map]);
 
@@ -346,14 +409,22 @@ const Viewer = (): React.ReactElement => {
       });
       return;
     }
+    let name = getSatName(data.tle);
+    if (name.length === 0) {
+      name = "satellite_" + (conditionRef.current.length + 1);
+    }
+
+    const color = { ...colors[counterRef.current++ % colors.length] };
 
     conditionRef.current.push({
       id,
+      name,
       start: data.start,
       end: data.end,
       tle: [line1, line2],
       fov,
       offnadir,
+      color,
     });
 
     const maxMiliSec = data.end.getTime();
@@ -364,29 +435,22 @@ const Viewer = (): React.ReactElement => {
         max: Math.max(maxMiliSec, prev?.max || -Infinity),
       };
     });
-
     setCurrentDate(data.start);
 
     if (subSatelliteTrackLayerRef.current) {
       const source = subSatelliteTrackLayerRef.current.getSource();
       if (source) {
         try {
-          source.addFeature(
-            new OlGeoJSON({
-              featureProjection: "EPSG:4326",
-            }).readFeature({
-              type: "Feature",
-              geometry: {
-                type: "MultiLineString",
-                coordinates: satellite.subSatelliteTrack(
-                  line1,
-                  line2,
-                  data.start,
-                  data.end
-                ),
-              },
-            }) as Feature
-          );
+          const obj = new Feature({
+            geometry: new MultiLineString(
+              satellite.subSatelliteTrack(line1, line2, data.start, data.end)
+            ),
+            name,
+          });
+
+          obj.setStyle(getStyle(color.r, color.g, color.b));
+
+          source.addFeature(obj);
         } catch {
           setErrors((prev) => {
             if (!prev.includes("SUB_SATELLITE_TRACK")) {
@@ -413,17 +477,17 @@ const Viewer = (): React.ReactElement => {
               })
               .flat();
 
-            source.addFeature(
-              new OlGeoJSON({
-                featureProjection: "EPSG:4326",
-              }).readFeature({
-                type: "Feature",
-                geometry: {
-                  type: "MultiPolygon",
-                  coordinates,
-                },
-              }) as Feature
+            const obj = new Feature({
+              geometry: new MultiPolygon(coordinates),
+              name,
+            });
+            obj.setStyle(
+              getStyle(color.r, color.g, color.b, {
+                stroke: false,
+                image: false,
+              })
             );
+            source.addFeature(obj);
           } catch (e) {
             setErrors((prev) => {
               if (!prev.includes("ACCESS_AREA")) {
@@ -449,18 +513,28 @@ const Viewer = (): React.ReactElement => {
         if (source) {
           source.clear();
 
-          const geometries: Geometry[] = [];
-
+          const features: Feature[] = [];
           conditionRef.current.forEach((condition) => {
             try {
-              geometries.push({
-                type: "Point",
-                coordinates: satellite.nadir(
-                  condition.tle[0],
-                  condition.tle[1],
-                  currentDate
+              const obj = new Feature({
+                geometry: new Point(
+                  satellite.nadir(
+                    condition.tle[0],
+                    condition.tle[1],
+                    currentDate
+                  )
                 ),
+                name: condition.name,
               });
+
+              obj.setStyle(
+                getStyle(
+                  condition.color.r,
+                  condition.color.g,
+                  condition.color.b
+                )
+              );
+              features.push(obj);
             } catch {
               setErrors((prev) => {
                 if (!prev.includes("NADIR")) {
@@ -469,47 +543,44 @@ const Viewer = (): React.ReactElement => {
                 return prev;
               });
             }
-
             const fov = condition.fov;
-            try {
-              if (fov.length > 0) {
-                const tle = condition.tle;
-                condition.offnadir.forEach((offnadir) => {
-                  geometries.push({
-                    type: "Polygon",
-                    coordinates: [
+
+            if (fov.length > 0) {
+              const tle = condition.tle;
+              condition.offnadir.forEach((offnadir) => {
+                try {
+                  const obj = new Feature({
+                    geometry: new Polygon([
                       satellite.footprint(tle[0], tle[1], currentDate, {
                         fov: [fov[0], fov.length > 1 ? fov[1] : fov[0]],
                         offnadir,
                       }),
-                    ],
+                    ]),
+                    name: condition.name,
                   });
-                });
-              }
-            } catch {
-              setErrors((prev) => {
-                const sum = fov.reduce((sum, element) => {
-                  return sum + element;
-                }, 0);
-
-                if (sum !== 0 && !prev.includes("FOOTPRINT")) {
-                  return [...prev, "FOOTPRINT"];
+                  obj.setStyle(
+                    getStyle(
+                      condition.color.r,
+                      condition.color.g,
+                      condition.color.b
+                    )
+                  );
+                  features.push(obj);
+                } catch {
+                  setErrors((prev) => {
+                    const sum = fov.reduce((sum, element) => {
+                      return sum + element;
+                    }, 0);
+                    if (sum !== 0 && !prev.includes("FOOTPRINT")) {
+                      return [...prev, "FOOTPRINT"];
+                    }
+                    return prev;
+                  });
                 }
-                return prev;
               });
             }
           });
-          source.addFeature(
-            new OlGeoJSON({
-              featureProjection: "EPSG:4326",
-            }).readFeature({
-              type: "Feature",
-              geometry: {
-                type: "GeometryCollection",
-                geometries,
-              },
-            }) as Feature
-          );
+          source.addFeatures(features);
         }
       }
       if (terminatorLayerRef.current) {
