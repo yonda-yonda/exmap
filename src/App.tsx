@@ -6,6 +6,7 @@ import Grid from "./pages/grid";
 import Order from "./pages/order";
 import Picker from "./pages/picker";
 import Picture from "./pages/picture";
+import SatGlobe from "./pages/globe";
 import Satellite from "./pages/satellite";
 import Simplify from "./pages/simplify";
 import Top from "./pages/top";
@@ -48,7 +49,16 @@ const router = createBrowserRouter(
     },
     {
       path: "/satellite/",
-      element: <Satellite />,
+      children: [
+        {
+          index: true,
+          element: <Satellite />,
+        },
+        {
+          path: "globe",
+          element: <SatGlobe />,
+        },
+      ],
     },
     {
       path: "*",
