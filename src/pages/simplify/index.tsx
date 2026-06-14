@@ -184,7 +184,7 @@ const Simplify = (): React.ReactElement => {
         }) as OlFeature;
         source.addFeature(feature);
         const extent = feature.getGeometry()?.getExtent();
-        extent &&
+        if (extent)
           preview.map.getView().fit(extent, {
             padding: [40, 20, 40, 20],
             maxZoom: 20,

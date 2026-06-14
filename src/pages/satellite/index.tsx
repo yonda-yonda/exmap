@@ -488,7 +488,7 @@ const Viewer = (): React.ReactElement => {
               })
             );
             source.addFeature(obj);
-          } catch (e) {
+          } catch {
             setErrors((prev) => {
               if (!prev.includes("ACCESS_AREA")) {
                 return [...prev, "ACCESS_AREA"];

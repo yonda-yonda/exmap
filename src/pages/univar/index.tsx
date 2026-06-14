@@ -247,7 +247,6 @@ const StaticsItem = (props: { statics: StaticValue }): React.ReactElement => {
       const rate = 2;
       const histImageSize = [rate * bins, bins];
       const max = Math.max(...Array.from(statics.hist));
-      // eslint-disable-next-line new-cap
       const dst = new cv.Mat.zeros(
         histImageSize[1],
         histImageSize[0],

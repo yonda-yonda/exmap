@@ -194,7 +194,7 @@ export const useDnDSort = <T,>(
       dndItems.splice(hoveredIndex, 0, dragItem);
       const { left: x, top: y } = dragItem.element.getBoundingClientRect();
       dragItem.position = { x, y };
-      setItems(dndItems.map(v => v.value));
+      setItems(dndItems.map((v) => v.value));
     }
   };
 
@@ -276,7 +276,7 @@ export const useDnDSort = <T,>(
           const { left: x, top: y } = element.getBoundingClientRect();
           const position: Position = { x, y };
 
-          const itemIndex = dndItems.findIndex(item => item.key === key);
+          const itemIndex = dndItems.findIndex((item) => item.key === key);
 
           if (itemIndex === -1) {
             return dndItems.push({

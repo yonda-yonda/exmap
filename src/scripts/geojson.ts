@@ -18,9 +18,9 @@ export const parsedLinearRing = (data: string): number[][] | null => {
       data.replace(/\r?\n/g, "").replace(/\s+/g, "").replace(/],]$/g, "]]")
     );
     if (Array.isArray(json)) {
-      json.forEach(p => {
+      json.forEach((p) => {
         if (!Array.isArray(p)) throw new Error();
-        p.forEach(v => {
+        p.forEach((v) => {
           if (typeof v !== "number") throw new Error();
         });
       });

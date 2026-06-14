@@ -165,12 +165,14 @@ const Transform = (): React.ReactElement => {
         }) as OlFeature;
         source.addFeature(feature);
         const polygon = feature.getGeometry()?.getExtent();
-        polygon &&
+        if (polygon)
           preview.map.getView().fit(polygon, {
             padding: [40, 20, 40, 20],
             maxZoom: 20,
           });
-      } catch {}
+      } catch {
+        return;
+      }
     }
   }, [rawInput, preview.map]);
 
