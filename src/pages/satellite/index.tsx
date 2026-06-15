@@ -28,7 +28,6 @@ import DatePicker from "react-datepicker";
 import { Helmet } from "react-helmet-async";
 import { useForm, SubmitHandler, Controller } from "react-hook-form";
 import { scroller } from "react-scroll";
-import { twoline2satrec, json2satrec, SatRec } from "satellite.js";
 
 import "react-datepicker/dist/react-datepicker.css";
 import { useOl } from "~/hooks/useOl";

@@ -146,11 +146,6 @@ const Grid = (): React.ReactElement => {
         <meta name="description" content="Show Tile Grid." />
         <link rel="canonical" href="https://yonda-yonda.github.io/exmap/grid" />
         <link
-          rel="icon"
-          type="image/x-icon"
-          href="https://github.githubassets.com/favicon.ico"
-        />
-        <link
           rel="stylesheet"
           href="https://fonts.googleapis.com/css?family=Roboto:300,400,500,700&display=swap"
         />
