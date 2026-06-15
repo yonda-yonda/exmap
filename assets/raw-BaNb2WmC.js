@@ -1,0 +1,1 @@
+var a=Object.defineProperty;var t=(r,e)=>a(r,"name",{value:e,configurable:!0});import{B as d}from"./basedecoder-BFlhoaf5.js";const s=class s extends d{decodeBlock(e){return e}};t(s,"RawDecoder");let o=s;export{o as default};

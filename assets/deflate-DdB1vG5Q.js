@@ -1,0 +1,1 @@
+var e=Object.defineProperty;var a=(t,r)=>e(t,"name",{value:r,configurable:!0});import{i}from"./pako.esm-CaV6b0j0.js";import{B as n}from"./basedecoder-BFlhoaf5.js";const s=class s extends n{decodeBlock(r){return i(new Uint8Array(r)).buffer}};a(s,"DeflateDecoder");let o=s;export{o as default};
