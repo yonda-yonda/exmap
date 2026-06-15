@@ -46,33 +46,6 @@ const colors: Color[] = [
   { r: 0, g: 0, b: 255 },
 ];
 
-// geo4326がv2化した際はそちらに任せる
-const getSatRec = (value: satellite.GPData): SatRec => {
-  let satrec: SatRec | null = null;
-  if (Array.isArray(value)) {
-    if (value.length === 1 && typeof value[0] !== "string") {
-      satrec = json2satrec(value[0]);
-    }
-    if (
-      value.length === 2 &&
-      typeof value[0] === "string" &&
-      typeof value[1] === "string"
-    ) {
-      satrec = twoline2satrec(value[0], value[1]);
-    }
-    if (
-      value.length === 3 &&
-      typeof value[0] === "string" &&
-      typeof value[1] === "string" &&
-      typeof value[2] === "string"
-    ) {
-      satrec = twoline2satrec(value[1], value[2]);
-    }
-  } else satrec = json2satrec(value);
-  if (satrec === null) throw new TypeError();
-  return satrec;
-};
-
 const getGPData = (value: string): [string, satellite.GPData] => {
   const lines = value.split(/\r\n|\n/).filter((v) => v.length > 0);
 
@@ -205,7 +178,7 @@ const Viewer = (): React.ReactElement => {
   const orbitalElements = React.useMemo(() => {
     try {
       const [name, data] = getGPData(watchGPData);
-      const satrec = getSatRec(data);
+      const satrec = satellite.getSatRec(data);
       const ret: {
         key: string;
         label: { ja: string; en: string };

@@ -3326,7 +3326,7 @@ __metadata:
     eslint-plugin-import-x: ^4.6.1
     eslint-plugin-react: ^7.37.2
     eslint-plugin-react-hooks: ^5.1.0
-    geo4326: 2.0.0-beta.2
+    geo4326: 2.0.0
     geotiff: ^2.1.0
     gh-pages: ^6.1.0
     globals: ^15.14.0
@@ -3632,14 +3632,14 @@ __metadata:
   languageName: node
   linkType: hard
 
-"geo4326@npm:2.0.0-beta.2":
-  version: 2.0.0-beta.2
-  resolution: "geo4326@npm:2.0.0-beta.2"
+"geo4326@npm:2.0.0":
+  version: 2.0.0
+  resolution: "geo4326@npm:2.0.0"
   dependencies:
     "@types/geojson": ^7946.0.16
     proj4: ^2.20.9
     satellite.js: ^6.0.2
-  checksum: a4363bf10502649f0703983fa81c98f3892ac0b3d5d08e826461a4f4b7e31d19cae8bc448fdd766b62f43a59595a2e2a45e6024e4e4cd2616b084dbfaabbc64a
+  checksum: 3d742ae3c60951f83eb1c7393027189adb80f44c11b24fbbe34735a11ab5b9f3d59f8ef2bc826b651810a2dbffc8e1d54ee8ad9422f5bd3f268b02921ec4f378
   languageName: node
   linkType: hard
 
