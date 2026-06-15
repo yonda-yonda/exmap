@@ -180,11 +180,6 @@ const Picker = (): React.ReactElement => {
           href="https://yonda-yonda.github.io/exmap/picker"
         />
         <link
-          rel="icon"
-          type="image/x-icon"
-          href="https://github.githubassets.com/favicon.ico"
-        />
-        <link
           rel="stylesheet"
           href="https://fonts.googleapis.com/css?family=Roboto:300,400,500,700&display=swap"
         />

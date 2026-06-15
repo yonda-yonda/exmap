@@ -20,7 +20,7 @@ import CssBaseline from "@mui/material/CssBaseline";
 import { useTheme } from "@mui/material/styles";
 import useMediaQuery from "@mui/material/useMediaQuery";
 import { styled } from "@mui/system";
-import { utils, simplify } from "geo4326";
+import { utils, simplify, crs } from "geo4326";
 import { View } from "ol";
 import OlFeature from "ol/Feature";
 import OlGeoJSON from "ol/format/GeoJSON";
@@ -151,9 +151,9 @@ const Simplify = (): React.ReactElement => {
       try {
         if (code !== currentCode) {
           if (!getProjection(code)) {
-            const crs = utils.getCrs(code);
+            const c = crs.getCrs(code);
 
-            proj4.defs(code, crs);
+            proj4.defs(code, c);
             register(proj4);
           }
 
@@ -206,7 +206,7 @@ const Simplify = (): React.ReactElement => {
 
       const code = data.code;
       try {
-        utils.getCrs(`EPSG:${code}`);
+        crs.getCrs(`EPSG:${code}`);
       } catch {
         setSimplifyError({ type: "code" });
         return;
@@ -345,11 +345,6 @@ const Simplify = (): React.ReactElement => {
           href="https://yonda-yonda.github.io/exmap/simplify"
         />
         <link
-          rel="icon"
-          type="image/x-icon"
-          href="https://github.githubassets.com/favicon.ico"
-        />
-        <link
           rel="stylesheet"
           href="https://fonts.googleapis.com/css?family=Roboto:300,400,500,700&display=swap"
         />
@@ -476,7 +471,7 @@ const Simplify = (): React.ReactElement => {
                             selfintersection: (data) => {
                               const points = parsedLinearRing(data);
                               return points
-                                ? !utils.selfintersection(points)
+                                ? !utils.selfIntersection(points)
                                 : true;
                             },
                           },

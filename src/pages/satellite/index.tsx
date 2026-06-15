@@ -28,7 +28,7 @@ import DatePicker from "react-datepicker";
 import { Helmet } from "react-helmet-async";
 import { useForm, SubmitHandler, Controller } from "react-hook-form";
 import { scroller } from "react-scroll";
-import { twoline2satrec } from "satellite.js";
+import { twoline2satrec, json2satrec, SatRec } from "satellite.js";
 
 import "react-datepicker/dist/react-datepicker.css";
 import { useOl } from "~/hooks/useOl";
@@ -46,24 +46,53 @@ const colors: Color[] = [
   { r: 0, g: 0, b: 255 },
 ];
 
-const parseTLE = (value: string): [string, string] => {
-  const lines = value.split(/\r\n|\n/).filter((v) => v.length > 0);
-
-  let line1 = "";
-  let line2 = "";
-
-  if (lines.length > 2) line1 = lines[1];
-  else if (lines.length > 0) line1 = lines[0];
-  if (lines.length > 2) line2 = lines[2];
-  else if (lines.length > 1) line2 = lines[1];
-  return [line1, line2];
+// geo4326がv2化した際はそちらに任せる
+const getSatRec = (value: satellite.GPData): SatRec => {
+  let satrec: SatRec | null = null;
+  if (Array.isArray(value)) {
+    if (value.length === 1 && typeof value[0] !== "string") {
+      satrec = json2satrec(value[0]);
+    }
+    if (
+      value.length === 2 &&
+      typeof value[0] === "string" &&
+      typeof value[1] === "string"
+    ) {
+      satrec = twoline2satrec(value[0], value[1]);
+    }
+    if (
+      value.length === 3 &&
+      typeof value[0] === "string" &&
+      typeof value[1] === "string" &&
+      typeof value[2] === "string"
+    ) {
+      satrec = twoline2satrec(value[1], value[2]);
+    }
+  } else satrec = json2satrec(value);
+  if (satrec === null) throw new TypeError();
+  return satrec;
 };
 
-const getSatName = (value: string): string => {
+const getGPData = (value: string): [string, satellite.GPData] => {
   const lines = value.split(/\r\n|\n/).filter((v) => v.length > 0);
 
-  if (lines.length > 2) return lines[0];
-  return "";
+  if (lines.length == 2 && validate(lines[0], lines[1])) return ["", lines];
+  if (lines.length == 3 && validate(lines[1], lines[2]))
+    return [lines[0], [lines[1], lines[2]]];
+
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const isObj = (value: any) => {
+    return value !== null && !Array.isArray(value) && typeof value === "object";
+  };
+  const obj = JSON.parse(value);
+  if (isObj(obj)) {
+    return [obj["OBJECT_NAME"], obj];
+  }
+  if (Array.isArray(obj) && isObj(obj[0])) {
+    return [obj[0]["OBJECT_NAME"], obj[0]];
+  }
+
+  throw new TypeError("unsuported value");
 };
 
 const getStyle = (
@@ -115,7 +144,7 @@ const getStyle = (
 };
 
 type Input = {
-  tle: string;
+  gpdata: string;
   start: Date;
   end: Date;
   fov: string;
@@ -129,7 +158,7 @@ const end = new Date(start);
 end.setHours(end.getHours() + 6);
 
 const defaultValues = {
-  tle: "",
+  gpdata: "",
   start,
   end,
   fov: "0",
@@ -150,7 +179,7 @@ const Viewer = (): React.ReactElement => {
       name: string;
       start: Date;
       end: Date;
-      tle: [string, string];
+      gpdata: satellite.GPData;
       fov: number[];
       offnadir: number[];
       color: Color;
@@ -171,96 +200,100 @@ const Viewer = (): React.ReactElement => {
 
   const [showResult, setShowResult] = React.useState(false);
 
-  const watchTLE = watch("tle");
+  const watchGPData = watch("gpdata");
 
   const orbitalElements = React.useMemo(() => {
-    const [line1, line2] = parseTLE(watchTLE);
-    if (!validate(line1, line2)) return [];
+    try {
+      const [name, data] = getGPData(watchGPData);
+      const satrec = getSatRec(data);
+      const ret: {
+        key: string;
+        label: { ja: string; en: string };
+        value: string | number;
+        unit: string;
+      }[] = [];
 
-    const ret: {
-      key: string;
-      label: { ja: string; en: string };
-      value: string | number;
-      unit: string;
-    }[] = [];
-    const name = getSatName(watchTLE);
-    if (name.length > 0)
+      if (name.length > 0)
+        ret.push({
+          key: "name",
+          label: { ja: "衛星名", en: "Name" },
+          value: name,
+          unit: "",
+        });
+
       ret.push({
-        key: "name",
-        label: { ja: "衛星名", en: "Name" },
-        value: name,
+        key: "num",
+        label: { ja: "カタログ番号", en: "Number" },
+        value: satrec.satnum,
+        unit: "",
+      });
+      // https://celestrak.org/columns/v04n03/
+      // 98001.00000000 -> 1998-01-01T00:00:00.000Z
+      // 98000.00000000 -> 1997-12-31T00:00:00.000Z
+      // 98001.50000000 -> 1998-01-01T12:00:00.000Z
+      const year = satrec.epochyr;
+      const day = satrec.epochdays - 1;
+      const epoch = new Date(
+        (year < 57 ? "20" : "19") + ("00" + year).slice(-2) + "-01-01T00:00:00Z"
+      );
+      epoch.setMilliseconds(day * 1000 * 60 * 60 * 24);
+      ret.push({
+        key: "epoch",
+        label: { ja: "元期", en: "Epoch" },
+        value: epoch.toISOString(),
         unit: "",
       });
 
-    const satrec = twoline2satrec(line1, line2);
-
-    ret.push({
-      key: "num",
-      label: { ja: "カタログ番号", en: "Number" },
-      value: satrec.satnum,
-      unit: "",
-    });
-    // https://celestrak.org/columns/v04n03/
-    // 98001.00000000 -> 1998-01-01T00:00:00.000Z
-    // 98000.00000000 -> 1997-12-31T00:00:00.000Z
-    // 98001.50000000 -> 1998-01-01T12:00:00.000Z
-    const year = satrec.epochyr;
-    const day = satrec.epochdays - 1;
-    const epoch = new Date(
-      (year < 57 ? "20" : "19") + ("00" + year).slice(-2) + "-01-01T00:00:00Z"
-    );
-    epoch.setMilliseconds(day * 1000 * 60 * 60 * 24);
-    ret.push({
-      key: "epoch",
-      label: { ja: "元期", en: "Epoch" },
-      value: epoch.toISOString(),
-      unit: "",
-    });
-
-    ret.push({
-      key: "bstar",
-      label: { ja: "BStar", en: "BStar" },
-      value: String(satrec.bstar),
-      unit: "",
-    });
-    ret.push({
-      key: "inc",
-      label: { ja: "軌道傾斜角", en: "Inclination" },
-      value: ((satrec.inclo * 180) / Math.PI).toFixed(4),
-      unit: "deg",
-    });
-    ret.push({
-      key: "ran",
-      label: { ja: "昇交点赤径", en: "Right Ascension of Ascending Node" },
-      value: ((satrec.nodeo * 180) / Math.PI).toFixed(4),
-      unit: "deg",
-    });
-    ret.push({
-      key: "ecc",
-      label: { ja: "離心率", en: "Eccentricity" },
-      value: satrec.ecco,
-      unit: "",
-    });
-    ret.push({
-      key: "perigee",
-      label: { ja: "近地点離角", en: "Argument of Perigee" },
-      value: ((satrec.argpo * 180) / Math.PI).toFixed(4),
-      unit: "deg",
-    });
-    ret.push({
-      key: "ma",
-      label: { ja: "平均近点角", en: "Mean Anomaly" },
-      value: ((satrec.mo * 180) / Math.PI).toFixed(4),
-      unit: "deg",
-    });
-    ret.push({
-      key: "mo",
-      label: { ja: "平均運動", en: "Mean Motion" },
-      value: satrec.no * (1440.0 / (2.0 * Math.PI)),
-      unit: "1/day",
-    });
-    return ret;
-  }, [watchTLE]);
+      ret.push({
+        key: "bstar",
+        label: { ja: "BStar", en: "BStar" },
+        value: String(satrec.bstar),
+        unit: "",
+      });
+      ret.push({
+        key: "inc",
+        label: { ja: "軌道傾斜角", en: "Inclination" },
+        value: ((satrec.inclo * 180) / Math.PI).toFixed(4),
+        unit: "deg",
+      });
+      ret.push({
+        key: "ran",
+        label: {
+          ja: "昇交点赤径",
+          en: "Right Ascension of Ascending Node",
+        },
+        value: ((satrec.nodeo * 180) / Math.PI).toFixed(4),
+        unit: "deg",
+      });
+      ret.push({
+        key: "ecc",
+        label: { ja: "離心率", en: "Eccentricity" },
+        value: satrec.ecco,
+        unit: "",
+      });
+      ret.push({
+        key: "perigee",
+        label: { ja: "近地点離角", en: "Argument of Perigee" },
+        value: ((satrec.argpo * 180) / Math.PI).toFixed(4),
+        unit: "deg",
+      });
+      ret.push({
+        key: "ma",
+        label: { ja: "平均近点角", en: "Mean Anomaly" },
+        value: ((satrec.mo * 180) / Math.PI).toFixed(4),
+        unit: "deg",
+      });
+      ret.push({
+        key: "mo",
+        label: { ja: "平均運動", en: "Mean Motion" },
+        value: satrec.no * (1440.0 / (2.0 * Math.PI)),
+        unit: "1/day",
+      });
+      return ret;
+    } catch {
+      return [];
+    }
+  }, [watchGPData]);
 
   React.useEffect(() => {
     const epoch = orbitalElements.find((orbitalElement) => {
@@ -277,7 +310,7 @@ const Viewer = (): React.ReactElement => {
 
   const sample = React.useCallback(() => {
     setValue(
-      "tle",
+      "gpdata",
       "SENTINEL-2A\n1 40697U 15028A   23330.11653598 -.00000027  00000+0  63838-5 0  9993\n2 40697  98.5636  42.2887 0000923  96.4386 263.6902 14.30826055440163"
     );
     setValue("fov", "20.6");
@@ -386,124 +419,127 @@ const Viewer = (): React.ReactElement => {
   }, [ol.map]);
 
   const onSubmit: SubmitHandler<Input> = React.useCallback((data) => {
-    const [line1, line2] = parseTLE(data.tle);
-    setErrors([]);
+    try {
+      const [satname, gpdata] = getGPData(data.gpdata);
+      setErrors([]);
 
-    setShowResult(true);
-    const fov = data.fov
-      .split(",")
-      .map((v) => Number(v) / 2)
-      .slice(0, 2);
-    const offnadir = data.offnadir
-      .split(",")
-      .map((v) => Number(v))
-      .slice(0, 2);
-
-    const id = data.tle + data.fov + data.offnadir;
-    if (conditionRef.current.find((v) => v.id === id)) {
-      setErrors((prev) => {
-        if (!prev.includes("DUPLICATE")) {
-          return [...prev, "DUPLICATE"];
-        }
-        return prev;
-      });
-      return;
-    }
-    let name = getSatName(data.tle);
-    if (name.length === 0) {
-      name = "satellite_" + (conditionRef.current.length + 1);
-    }
-
-    const color = { ...colors[counterRef.current++ % colors.length] };
-
-    conditionRef.current.push({
-      id,
-      name,
-      start: data.start,
-      end: data.end,
-      tle: [line1, line2],
-      fov,
-      offnadir,
-      color,
-    });
-
-    const maxMiliSec = data.end.getTime();
-    const minMiliSec = data.start.getTime();
-    setSliderConfig((prev) => {
-      return {
-        min: Math.min(minMiliSec, prev?.min || Infinity),
-        max: Math.max(maxMiliSec, prev?.max || -Infinity),
-      };
-    });
-    setCurrentDate(data.start);
-
-    if (subSatelliteTrackLayerRef.current) {
-      const source = subSatelliteTrackLayerRef.current.getSource();
-      if (source) {
-        try {
-          const obj = new Feature({
-            geometry: new MultiLineString(
-              satellite.subSatelliteTrack(line1, line2, data.start, data.end)
-            ),
-            name,
-          });
-
-          obj.setStyle(getStyle(color.r, color.g, color.b));
-
-          source.addFeature(obj);
-        } catch {
-          setErrors((prev) => {
-            if (!prev.includes("SUB_SATELLITE_TRACK")) {
-              return [...prev, "SUB_SATELLITE_TRACK"];
-            }
-            return prev;
-          });
-        }
+      setShowResult(true);
+      const fov = data.fov
+        .split(",")
+        .map((v) => Number(v) / 2)
+        .slice(0, 2);
+      const offnadir = data.offnadir
+        .split(",")
+        .map((v) => Number(v))
+        .slice(0, 2);
+      const id = data.gpdata.replace(/\r?\n/g, "") + data.fov + data.offnadir;
+      if (conditionRef.current.find((v) => v.id === id)) {
+        setErrors((prev) => {
+          if (!prev.includes("DUPLICATE")) {
+            return [...prev, "DUPLICATE"];
+          }
+          return prev;
+        });
+        return;
       }
-    }
+      let name = satname;
+      if (name.length === 0) {
+        name = "satellite_" + (conditionRef.current.length + 1);
+      }
 
-    if (accessAreaLayerRef.current) {
-      const source = accessAreaLayerRef.current.getSource();
-      if (source) {
-        if (fov.length > 0) {
+      const color = { ...colors[counterRef.current++ % colors.length] };
+
+      conditionRef.current.push({
+        id,
+        name,
+        start: data.start,
+        end: data.end,
+        gpdata,
+        fov,
+        offnadir,
+        color,
+      });
+
+      const maxMiliSec = data.end.getTime();
+      const minMiliSec = data.start.getTime();
+      setSliderConfig((prev) => {
+        return {
+          min: Math.min(minMiliSec, prev?.min || Infinity),
+          max: Math.max(maxMiliSec, prev?.max || -Infinity),
+        };
+      });
+      setCurrentDate(data.start);
+
+      if (subSatelliteTrackLayerRef.current) {
+        const source = subSatelliteTrackLayerRef.current.getSource();
+        if (source) {
           try {
-            const coordinates = offnadir
-              .map((v) => {
-                return satellite
-                  .accessArea(line1, line2, data.start, data.end, {
-                    roll: [v + fov[0] / 2, v - fov[0] / 2],
-                  })
-                  .map((c) => [c]);
-              })
-              .flat();
-
             const obj = new Feature({
-              geometry: new MultiPolygon(coordinates),
+              geometry: new MultiLineString(
+                satellite.subSatelliteTrack(gpdata, data.start, data.end)
+              ),
               name,
             });
-            obj.setStyle(
-              getStyle(color.r, color.g, color.b, {
-                stroke: false,
-                image: false,
-              })
-            );
+
+            obj.setStyle(getStyle(color.r, color.g, color.b));
+
             source.addFeature(obj);
           } catch {
             setErrors((prev) => {
-              if (!prev.includes("ACCESS_AREA")) {
-                return [...prev, "ACCESS_AREA"];
+              if (!prev.includes("SUB_SATELLITE_TRACK")) {
+                return [...prev, "SUB_SATELLITE_TRACK"];
               }
               return prev;
             });
           }
         }
       }
+
+      if (accessAreaLayerRef.current) {
+        const source = accessAreaLayerRef.current.getSource();
+        if (source) {
+          if (fov.length > 0) {
+            try {
+              const coordinates = offnadir
+                .map((v) => {
+                  return satellite
+                    .accessArea(gpdata, data.start, data.end, {
+                      roll: [v + fov[0] / 2, v - fov[0] / 2],
+                    })
+                    .map((c) => [c]);
+                })
+                .flat();
+
+              const obj = new Feature({
+                geometry: new MultiPolygon(coordinates),
+                name,
+              });
+              obj.setStyle(
+                getStyle(color.r, color.g, color.b, {
+                  stroke: false,
+                  image: false,
+                })
+              );
+              source.addFeature(obj);
+            } catch {
+              setErrors((prev) => {
+                if (!prev.includes("ACCESS_AREA")) {
+                  return [...prev, "ACCESS_AREA"];
+                }
+                return prev;
+              });
+            }
+          }
+        }
+      }
+      scroller.scrollTo("result", {
+        duration: 1000,
+        delay: 10,
+        smooth: "easeInOutQuart",
+      });
+    } catch {
+      setErrors(["INVALID_GPDATA"]);
     }
-    scroller.scrollTo("result", {
-      duration: 1000,
-      delay: 10,
-      smooth: "easeInOutQuart",
-    });
   }, []);
 
   React.useEffect(() => {
@@ -518,11 +554,7 @@ const Viewer = (): React.ReactElement => {
             try {
               const obj = new Feature({
                 geometry: new Point(
-                  satellite.nadir(
-                    condition.tle[0],
-                    condition.tle[1],
-                    currentDate
-                  )
+                  satellite.nadir(condition.gpdata, currentDate)
                 ),
                 name: condition.name,
               });
@@ -546,12 +578,12 @@ const Viewer = (): React.ReactElement => {
             const fov = condition.fov;
 
             if (fov.length > 0) {
-              const tle = condition.tle;
+              const gpdata = condition.gpdata;
               condition.offnadir.forEach((offnadir) => {
                 try {
                   const obj = new Feature({
                     geometry: new Polygon([
-                      satellite.footprint(tle[0], tle[1], currentDate, {
+                      satellite.footprint(gpdata, currentDate, {
                         fov: [fov[0], fov.length > 1 ? fov[1] : fov[0]],
                         offnadir,
                       }),
@@ -640,11 +672,6 @@ const Viewer = (): React.ReactElement => {
           href="https://yonda-yonda.github.io/exmap/picture"
         />
         <link
-          rel="icon"
-          type="image/x-icon"
-          href="https://github.githubassets.com/favicon.ico"
-        />
-        <link
           rel="stylesheet"
           href="https://fonts.googleapis.com/css?family=Roboto:300,400,500,700&display=swap"
         />
@@ -674,7 +701,7 @@ const Viewer = (): React.ReactElement => {
                 <Box>
                   <Controller
                     control={control}
-                    name="tle"
+                    name="gpdata"
                     render={({ field, fieldState: { invalid, error } }) => (
                       <FormControl
                         component="fieldset"
@@ -683,7 +710,7 @@ const Viewer = (): React.ReactElement => {
                       >
                         <TextField
                           {...field}
-                          label="TLE"
+                          label="GP Data"
                           multiline
                           rows={3}
                           error={invalid}
@@ -696,9 +723,9 @@ const Viewer = (): React.ReactElement => {
                         )}
                         {error?.type === "validate" && (
                           <FormHelperText sx={{ mx: 0 }}>
-                            Not matched TLE pattern.
+                            Not matched GP Data pattern.
                             <br />
-                            TLEの形式が正しくありません。
+                            GP Dataの形式が正しくありません。
                           </FormHelperText>
                         )}
                       </FormControl>
@@ -706,8 +733,11 @@ const Viewer = (): React.ReactElement => {
                     rules={{
                       required: true,
                       validate: (value) => {
-                        const [line1, line2] = parseTLE(value);
-                        return validate(line1, line2);
+                        try {
+                          return !!getGPData(value);
+                        } catch {
+                          return false;
+                        }
                       },
                     }}
                   />
@@ -1008,6 +1038,13 @@ const Viewer = (): React.ReactElement => {
                       duplicated satellite information.
                       <br />
                       衛星の情報が重複しています。
+                    </FormHelperText>
+                  )}
+                  {errors.includes("INVALID_GPDATA") && (
+                    <FormHelperText sx={{ mx: 0 }}>
+                      invalid GPData.
+                      <br />
+                      衛星の情報が正しくありません。
                     </FormHelperText>
                   )}
                 </FormControl>

@@ -16,7 +16,7 @@ import {
 import CssBaseline from "@mui/material/CssBaseline";
 import { useTheme } from "@mui/material/styles";
 import useMediaQuery from "@mui/material/useMediaQuery";
-import { utils, transform } from "geo4326";
+import { utils, transform, crs } from "geo4326";
 import { View } from "ol";
 import OlFeature from "ol/Feature";
 import OlGeoJSON from "ol/format/GeoJSON";
@@ -132,9 +132,9 @@ const Transform = (): React.ReactElement => {
       try {
         if (code !== currentCode) {
           if (!getProjection(code)) {
-            const crs = utils.getCrs(code);
+            const c = crs.getCrs(code);
 
-            proj4.defs(code, crs);
+            proj4.defs(code, c);
             register(proj4);
           }
 
@@ -185,9 +185,9 @@ const Transform = (): React.ReactElement => {
 
       const code = `EPSG:${data.code}`;
 
-      let crs: string;
+      let crsStr: string;
       try {
-        crs = utils.getCrs(code);
+        crsStr = crs.getCrs(code);
       } catch {
         setTransformError({ type: "code" });
         return;
@@ -199,7 +199,7 @@ const Transform = (): React.ReactElement => {
         return;
       }
       try {
-        const feature = transform.geojsonFromLinearRing(coordinates, crs, {
+        const feature = transform.geojsonFromLinearRing(coordinates, crsStr, {
           partition: parseInt(data.partition, 10),
           expand: !data.split,
         });
@@ -279,11 +279,6 @@ const Transform = (): React.ReactElement => {
         <link
           rel="canonical"
           href="https://yonda-yonda.github.io/exmap/transform"
-        />
-        <link
-          rel="icon"
-          type="image/x-icon"
-          href="https://github.githubassets.com/favicon.ico"
         />
         <link
           rel="stylesheet"
@@ -405,7 +400,7 @@ const Transform = (): React.ReactElement => {
                           selfintersection: (data) => {
                             const points = parsedLinearRing(data);
                             return points
-                              ? !utils.selfintersection(points)
+                              ? !utils.selfIntersection(points)
                               : true;
                           },
                         },

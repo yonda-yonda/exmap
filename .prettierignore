@@ -1,0 +1,15 @@
+build
+dist
+out
+node_modules
+coverage
+
+.yarn
+.pnp.*
+
+*.min.*
+*.tsbuildinfo
+
+yarn.lock
+package-lock.json
+pnpm-lock.yaml

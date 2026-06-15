@@ -14,7 +14,7 @@ import {
 } from "@mui/material";
 import CssBaseline from "@mui/material/CssBaseline";
 import { styled } from "@mui/system";
-import { utils } from "geo4326";
+import { crs } from "geo4326";
 import { Map } from "ol";
 import MousePosition from "ol/control/MousePosition";
 import TileLayer from "ol/layer/Tile";
@@ -146,8 +146,8 @@ const Viewer = (): React.ReactElement => {
     (code: string) => {
       if (!getProjection(code)) {
         try {
-          const crs = utils.getCrs(code);
-          proj4.defs(code, crs);
+          const c = crs.getCrs(code);
+          proj4.defs(code, c);
         } catch {
           setProjection((prev) => {
             prev.error = true;
@@ -246,8 +246,8 @@ const Viewer = (): React.ReactElement => {
       const rotate = source.rotate.length > 0 ? parseFloat(source.rotate) : 0;
       if (!getProjection(code)) {
         try {
-          const crs = utils.getCrs(code);
-          proj4.defs(code, crs);
+          const c = crs.getCrs(code);
+          proj4.defs(code, c);
         } catch {
           setError("UnsupportedCrs");
           return;
@@ -443,11 +443,6 @@ const Viewer = (): React.ReactElement => {
         <link
           rel="canonical"
           href="https://yonda-yonda.github.io/exmap/picture"
-        />
-        <link
-          rel="icon"
-          type="image/x-icon"
-          href="https://github.githubassets.com/favicon.ico"
         />
         <link
           rel="stylesheet"

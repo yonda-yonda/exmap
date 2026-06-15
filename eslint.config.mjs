@@ -1,11 +1,11 @@
 import js from "@eslint/js";
-import tseslint from "typescript-eslint";
-import react from "eslint-plugin-react";
-import reactHooks from "eslint-plugin-react-hooks";
-import importX from "eslint-plugin-import-x";
 import vitest from "@vitest/eslint-plugin";
 import prettier from "eslint-config-prettier";
+import importX from "eslint-plugin-import-x";
+import react from "eslint-plugin-react";
+import reactHooks from "eslint-plugin-react-hooks";
 import globals from "globals";
+import tseslint from "typescript-eslint";
 
 export default tseslint.config(
   { ignores: ["build/", "out/", "dist/", "node_modules/"] },
@@ -64,6 +64,12 @@ export default tseslint.config(
     files: ["src/**/*.test.{ts,tsx}"],
     ...vitest.configs.recommended,
   },
-
+  {
+    files: [
+      "*.config.{js,mjs,cjs,ts,mts,cts}",
+      "*.config.*.{js,mjs,cjs,ts,mts,cts}",
+    ],
+    rules: { "import-x/no-default-export": "off" },
+  },
   prettier // 競合するスタイル系ルールを最後に無効化
 );
